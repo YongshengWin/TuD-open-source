@@ -11,7 +11,7 @@
     "prebuild": "npm run brands:generate",
     "build": "next build",
     "start": "node scripts/preflight-env.mjs && next start",
-    "test": "node --test tests/*.test.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "test:release": "npm run lint && npx tsc --noEmit && npm run build && npm run test",
     "lint": "eslint app db lib tests --ignore-pattern .next --ignore-pattern dist",
     "db:generate": "drizzle-kit generate",
