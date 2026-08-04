@@ -1,0 +1,5 @@
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# 08:05 Asia/Shanghai. The API itself calculates tomorrow in Asia/Shanghai.
+5 0 * * * root cd /opt/tud && docker compose --env-file .env.production -f compose.production.yaml exec -T app node scripts/send-subscription-reminders.mjs >> /var/log/tud-reminders.log 2>&1

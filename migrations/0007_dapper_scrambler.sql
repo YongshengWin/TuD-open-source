@@ -1,0 +1,2 @@
+ALTER TABLE "subscriptions" ADD COLUMN "card_accent" text;--> statement-breakpoint
+ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_card_accent_hex_check" CHECK ("subscriptions"."card_accent" IS NULL OR "subscriptions"."card_accent" ~ '^[0-9a-f]{6}$');

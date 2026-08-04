@@ -1,0 +1,1 @@
+ALTER TABLE "subscriptions" ALTER COLUMN "due_date" DROP NOT NULL;

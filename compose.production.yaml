@@ -1,0 +1,83 @@
+name: tud
+
+x-app: &app
+  image: tud-app:${TUD_IMAGE_TAG:-local}
+  build:
+    context: .
+    args:
+      APP_REVISION: ${TUD_IMAGE_TAG:-local}
+  environment:
+    NODE_ENV: production
+    DATABASE_URL: postgresql://tud:${POSTGRES_PASSWORD}@postgres:5432/tud
+    TUD_PUBLIC_URL: ${TUD_PUBLIC_URL:-${BETTER_AUTH_URL}}
+    BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL is required}
+    BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+    REMINDER_CRON_SECRET: ${REMINDER_CRON_SECRET:?REMINDER_CRON_SECRET is required}
+    SMTP_HOST: ${SMTP_HOST:?SMTP_HOST is required}
+    SMTP_PORT: ${SMTP_PORT:-587}
+    SMTP_SECURE: ${SMTP_SECURE:-false}
+    SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-true}
+    SMTP_USER: ${SMTP_USER:-}
+    SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    EMAIL_FROM: ${EMAIL_FROM:?EMAIL_FROM is required}
+    EMAIL_DAILY_LIMIT: ${EMAIL_DAILY_LIMIT:-100}
+    EMAIL_RECIPIENT_DAILY_LIMIT: ${EMAIL_RECIPIENT_DAILY_LIMIT:-3}
+    EMAIL_QUOTA_WHITELIST: ${EMAIL_QUOTA_WHITELIST:-}
+    SUBSCRIPTION_REMINDER_EMAILS: ${SUBSCRIPTION_REMINDER_EMAILS:-${EMAIL_QUOTA_WHITELIST:-}}
+    PUBLIC_AUTH_ANNOUNCEMENT: ${PUBLIC_AUTH_ANNOUNCEMENT:-}
+  networks:
+    - backend
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tud
+      POSTGRES_USER: tud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tud -d tud"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  migrate:
+    <<: *app
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["node", "scripts/migrate.mjs"]
+    profiles: ["tools"]
+
+  app:
+    <<: *app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+
+volumes:
+  postgres-data:
+
+networks:
+  backend:
+    driver: bridge

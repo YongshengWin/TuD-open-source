@@ -1,0 +1,5 @@
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Daily UTC backup. The script writes mode-600 PostgreSQL custom dumps.
+17 3 * * * root cd /opt/tud && ./scripts/backup-postgres.sh >> /var/log/tud-backup.log 2>&1

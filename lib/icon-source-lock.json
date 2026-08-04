@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "sources": {
+    "local": {
+      "provider": "local",
+      "priority": 5,
+      "license": "NOASSERTION",
+      "sourcePage": "local://public/brands",
+      "revision": "content-addressed",
+      "assetsDirectory": "public/brands",
+      "assetBasePath": "/brands"
+    },
+    "hd-icons": {
+      "provider": "hd-icons",
+      "priority": 10,
+      "license": "MIT",
+      "sourcePage": "https://github.com/xushier/HD-Icons/tree/b15f076b84cfb3182bd7458ae924e67bebd5d63f",
+      "revision": "b15f076b84cfb3182bd7458ae924e67bebd5d63f",
+      "treeRevision": "735beff238092cd4dde34c5a67d4bd66f946f940",
+      "manifestUrl": "https://raw.githubusercontent.com/xushier/HD-Icons/b15f076b84cfb3182bd7458ae924e67bebd5d63f/icons.json",
+      "assetBaseUrl": "https://raw.githubusercontent.com/xushier/HD-Icons/b15f076b84cfb3182bd7458ae924e67bebd5d63f"
+    },
+    "dashboard-icons": {
+      "provider": "dashboard-icons",
+      "priority": 20,
+      "license": "Apache-2.0",
+      "sourcePage": "https://github.com/homarr-labs/dashboard-icons/tree/a014743fe9275190022c2487c54b2956041c8444",
+      "revision": "a014743fe9275190022c2487c54b2956041c8444",
+      "treeRevision": "5b6b55e4805570c947ba5f2a8902eec3ec3f3158",
+      "metadataUrl": "https://raw.githubusercontent.com/homarr-labs/dashboard-icons/a014743fe9275190022c2487c54b2956041c8444/metadata.json",
+      "treeUrl": "https://raw.githubusercontent.com/homarr-labs/dashboard-icons/a014743fe9275190022c2487c54b2956041c8444/tree.json",
+      "assetBaseUrl": "https://raw.githubusercontent.com/homarr-labs/dashboard-icons/a014743fe9275190022c2487c54b2956041c8444"
+    },
+    "lobe-icons": {
+      "provider": "lobe-icons",
+      "priority": 30,
+      "license": "MIT",
+      "sourcePage": "https://github.com/lobehub/lobe-icons/tree/f07e9be35aef452ce735f95ea8204a14ecc513f7/packages/static-svg/icons",
+      "revision": "f07e9be35aef452ce735f95ea8204a14ecc513f7",
+      "treeRevision": "bcdd8811c29345b53571bd0af5d68d94fc348f45",
+      "treeUrl": "https://api.github.com/repos/lobehub/lobe-icons/git/trees/bcdd8811c29345b53571bd0af5d68d94fc348f45?recursive=1",
+      "assetBaseUrl": "https://raw.githubusercontent.com/lobehub/lobe-icons/f07e9be35aef452ce735f95ea8204a14ecc513f7"
+    },
+    "selfhst-icons": {
+      "provider": "selfhst-icons",
+      "priority": 40,
+      "license": "CC-BY-4.0",
+      "sourcePage": "https://github.com/selfhst/icons/tree/f5b7d54f97895fc169461dcbedd77ddcce6daf54",
+      "revision": "f5b7d54f97895fc169461dcbedd77ddcce6daf54",
+      "treeRevision": "5cc3641c5c01361482e63e6b90897e463738925c",
+      "indexUrl": "https://raw.githubusercontent.com/selfhst/icons/f5b7d54f97895fc169461dcbedd77ddcce6daf54/index.json",
+      "assetBaseUrl": "https://raw.githubusercontent.com/selfhst/icons/f5b7d54f97895fc169461dcbedd77ddcce6daf54"
+    },
+    "simple-icons": {
+      "provider": "simple-icons",
+      "priority": 50,
+      "license": "CC0-1.0",
+      "sourcePage": "https://www.npmjs.com/package/simple-icons/v/16.27.0",
+      "revision": "16.27.0",
+      "integrity": "sha512-Rk2dCRVCPHnla9/mHmztJOlbkfncPDUMSOPozQO3+c+vr6Uwy9jhNHeuxxvNZgbF9ZwpoT1BCu1LNB4Q07VmZQ==",
+      "catalogPath": "lib/generated/brand-catalog.json",
+      "assetsDirectory": "public/brands/simple/16.27.0",
+      "assetBasePath": "/brands/simple/16.27.0"
+    }
+  }
+}

@@ -1,0 +1,47 @@
+name: 缺陷报告
+description: 报告可公开讨论、可稳定复现的问题
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 安全漏洞请使用 Security 页面私下报告，不要填写本表单。
+  - type: textarea
+    id: summary
+    attributes:
+      label: 问题描述
+      description: 实际发生了什么？你期望发生什么？
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      placeholder: "1. …\n2. …\n3. …"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: TuD 版本或 commit
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 环境
+      description: 浏览器、Node.js、操作系统与部署方式；请勿填写密钥或私人域名。
+  - type: textarea
+    id: logs
+    attributes:
+      label: 已脱敏日志或截图
+      description: 请先删除邮箱、域名、Cookie、Token、数据库地址和其他真实用户数据。
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索现有 Issue，未发现重复报告。
+          required: true
+        - label: 这不是需要私下报告的安全漏洞。
+          required: true

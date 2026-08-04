@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nexdue
+      POSTGRES_USER: nexdue
+      POSTGRES_PASSWORD: nexdue
+    ports:
+      - "5432:5432"
+    volumes:
+      - nexdue-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexdue -d nexdue"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  nexdue-postgres:
