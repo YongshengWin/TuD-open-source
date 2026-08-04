@@ -46,7 +46,7 @@ import { BrandPicker } from "./BrandPicker";
 import { CalendarView } from "./CalendarView";
 import { DateField } from "./DateField";
 import { daysUntilLocalDate, localDateKey } from "../../lib/subscription-calendar";
-import { convertMonthlySpend, formatCurrencyAmount, formatMonthlySpend, formatSubscriptionDate, monthlySpendByCurrency } from "../../lib/subscription-display";
+import { formatCurrencyAmount, formatMonthlySpend, formatSubscriptionDate, monthlySpendByCurrency, totalMonthlySpendInCurrency } from "../../lib/subscription-display";
 import { groupSubscriptionsByCategory } from "../../lib/subscription-order";
 import { SubscriptionTicketModal } from "./SubscriptionTicket";
 
@@ -252,10 +252,8 @@ export function Dashboard({
   const monthlySpend = useMemo(() => monthlySpendByCurrency(subscriptions), [subscriptions]);
   const needsConversion = monthlySpend.some((item) => item.currency !== summaryCurrency);
   const summaryTotal = useMemo(() => {
-    if (!monthlySpend.length) return 0;
-    if (!needsConversion) return monthlySpend.reduce((sum, item) => sum + item.amount, 0);
-    return exchangeRates ? convertMonthlySpend(monthlySpend, summaryCurrency, exchangeRates) : null;
-  }, [exchangeRates, monthlySpend, needsConversion, summaryCurrency]);
+    return totalMonthlySpendInCurrency(monthlySpend, summaryCurrency, exchangeRates);
+  }, [exchangeRates, monthlySpend, summaryCurrency]);
 
   useEffect(() => {
     if (!needsConversion || exchangeRates) return;
@@ -455,7 +453,7 @@ export function Dashboard({
           onReordered={setCategories}
         />
       )}
-      {showTicket && <SubscriptionTicketModal subscriptions={subscriptions} categories={categories} onClose={() => setShowTicket(false)} />}
+      {showTicket && <SubscriptionTicketModal subscriptions={subscriptions} categories={categories} initialSummaryCurrency={summaryCurrency} initialExchangeRates={exchangeRates} onClose={() => setShowTicket(false)} />}
     </main>
   );
 }

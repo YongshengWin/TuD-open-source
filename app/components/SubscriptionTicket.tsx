@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Download, Ticket, X } from "lucide-react";
+import { ChevronDown, Download, Ticket, X } from "lucide-react";
 import type { SubscriptionRecord } from "../../db/subscriptions";
-import { billingCycleLabel, currencyFractionDigits, minorToMajor } from "../../lib/subscription-options";
-import { formatCurrencyAmount, formatMonthlySpend, monthlySpendByCurrency } from "../../lib/subscription-display";
+import { billingCycleLabel, currencyFractionDigits, currencyOptions, minorToMajor, type SupportedCurrency } from "../../lib/subscription-options";
+import { formatCurrencyAmount, formatMonthlySpend, monthlySpendByCurrency, totalMonthlySpendInCurrency } from "../../lib/subscription-display";
 import { groupSubscriptionsByCategory } from "../../lib/subscription-order";
 import { monogramTextFromIconId } from "../../lib/monogram-icon";
 import { BrandIcon, brandIconImageUrl } from "./BrandIcon";
@@ -91,7 +91,11 @@ function clippedText(context: CanvasRenderingContext2D, value: string, x: number
   context.fillText(`${result}…`, x, y);
 }
 
-async function drawTicket(subscriptions: SubscriptionRecord[], categories: string[]) {
+async function drawTicket(
+  subscriptions: SubscriptionRecord[],
+  categories: string[],
+  monthlyTotal: { currencyCode: SupportedCurrency; amount: number } | null,
+) {
   await document.fonts.ready;
   const groups = makeGroups(subscriptions, categories);
   const width = 1080;
@@ -162,10 +166,8 @@ async function drawTicket(subscriptions: SubscriptionRecord[], categories: strin
   context.moveTo(left, y);
   context.lineTo(right, y);
   context.stroke();
-  const monthly = monthlySpendByCurrency(subscriptions);
-  const primary = monthly[0];
   const summary = [
-    { label: "预计每月支出", value: primary ? formatMonthlySpend(primary.amount, primary.currency) : "—" },
+    { label: `预计每月支出 · ${monthlyTotal?.currencyCode ?? "—"}`, value: monthlyTotal ? formatMonthlySpend(monthlyTotal.amount, monthlyTotal.currencyCode) : "—" },
     { label: "订阅数量", value: `${subscriptions.length} 项` },
     { label: "最近续费", value: nearestDueDate(subscriptions) ? ticketDate(nearestDueDate(subscriptions)) : "暂无" },
   ];
@@ -269,16 +271,59 @@ async function drawTicket(subscriptions: SubscriptionRecord[], categories: strin
   return canvas;
 }
 
-export function SubscriptionTicketModal({ subscriptions, categories, onClose }: { subscriptions: SubscriptionRecord[]; categories: string[]; onClose: () => void }) {
+export function SubscriptionTicketModal({
+  subscriptions,
+  categories,
+  initialSummaryCurrency,
+  initialExchangeRates,
+  onClose,
+}: {
+  subscriptions: SubscriptionRecord[];
+  categories: string[];
+  initialSummaryCurrency: SupportedCurrency;
+  initialExchangeRates: Record<string, number> | null;
+  onClose: () => void;
+}) {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
+  const [summaryCurrency, setSummaryCurrency] = useState<SupportedCurrency>(initialSummaryCurrency);
+  const [fetchedExchangeRates, setFetchedExchangeRates] = useState<Record<string, number> | null>(null);
+  const [exchangeRateError, setExchangeRateError] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(subscriptions.map((item) => item.id)));
   const selectionGroups = useMemo(() => makeGroups(subscriptions, categories), [subscriptions, categories]);
   const selectedSubscriptions = useMemo(() => subscriptions.filter((item) => selectedIds.has(item.id)), [subscriptions, selectedIds]);
   const groups = useMemo(() => makeGroups(selectedSubscriptions, categories), [selectedSubscriptions, categories]);
   const monthly = useMemo(() => monthlySpendByCurrency(selectedSubscriptions), [selectedSubscriptions]);
-  const primary = monthly[0];
+  const exchangeRates = initialExchangeRates ?? fetchedExchangeRates;
+  const needsConversion = monthly.some((item) => item.currency !== summaryCurrency);
+  const monthlyTotal = useMemo(
+    () => totalMonthlySpendInCurrency(monthly, summaryCurrency, exchangeRates),
+    [exchangeRates, monthly, summaryCurrency],
+  );
   const nearest = nearestDueDate(selectedSubscriptions);
+
+  useEffect(() => {
+    if (!needsConversion || exchangeRates) return;
+    const controller = new AbortController();
+    void fetch("/api/exchange-rates", { signal: controller.signal })
+      .then(async (response) => {
+        const body = await response.json() as { rates?: Record<string, number>; error?: string };
+        if (!response.ok || !body.rates) throw new Error(body.error ?? "汇率加载失败");
+        setFetchedExchangeRates(body.rates);
+        setExchangeRateError(false);
+      })
+      .catch((rateError) => {
+        if (rateError instanceof DOMException && rateError.name === "AbortError") return;
+        setExchangeRateError(true);
+      });
+    return () => controller.abort();
+  }, [exchangeRates, needsConversion, summaryCurrency]);
+
+  const summaryValue = !monthly.length
+    ? "—"
+    : monthlyTotal == null
+      ? exchangeRateError ? "汇率暂不可用" : "换算中…"
+      : formatMonthlySpend(monthlyTotal, summaryCurrency);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -295,7 +340,12 @@ export function SubscriptionTicketModal({ subscriptions, categories, onClose }: 
     setDownloading(true);
     setError("");
     try {
-      const canvas = await drawTicket(selectedSubscriptions, categories);
+      if (monthly.length && monthlyTotal == null) throw new Error("汇率尚未就绪，请稍后再试");
+      const canvas = await drawTicket(
+        selectedSubscriptions,
+        categories,
+        monthlyTotal == null ? null : { currencyCode: summaryCurrency, amount: monthlyTotal },
+      );
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
       if (!blob) throw new Error("图片生成失败");
       const url = URL.createObjectURL(blob);
@@ -334,7 +384,11 @@ export function SubscriptionTicketModal({ subscriptions, categories, onClose }: 
       <section className="ticket-modal" role="dialog" aria-modal="true" aria-labelledby="ticket-title">
         <header className="ticket-modal-head">
           <div><span>SUBSCRIPTION PASS</span><h2 id="ticket-title"><Ticket size={22} />订阅票</h2><p>选择需要展示的订阅，按分类生成一张内容自适应的长图。</p></div>
-          <div className="ticket-modal-actions"><button onClick={onClose} aria-label="关闭"><X size={19} /></button><button className="ticket-download" onClick={() => void download()} disabled={downloading || !selectedSubscriptions.length}><Download size={17} />{downloading ? "正在生成…" : "下载 PNG"}</button></div>
+          <div className="ticket-modal-actions">
+            <label className="ticket-currency-control"><span>汇总币种</span><select aria-label="订阅票汇总币种" value={summaryCurrency} onChange={(event) => { setExchangeRateError(false); setSummaryCurrency(event.target.value as SupportedCurrency); }}>{currencyOptions.map((option) => <option key={option.value} value={option.value}>{option.value}</option>)}</select><ChevronDown size={13} /></label>
+            <button onClick={onClose} aria-label="关闭"><X size={19} /></button>
+            <button className="ticket-download" onClick={() => void download()} disabled={downloading || !selectedSubscriptions.length || (monthly.length > 0 && monthlyTotal == null)}><Download size={17} />{downloading ? "正在生成…" : "下载 PNG"}</button>
+          </div>
         </header>
         {error && <p className="ticket-error" role="alert">{error}</p>}
         <div className="ticket-builder">
@@ -358,7 +412,7 @@ export function SubscriptionTicketModal({ subscriptions, categories, onClose }: 
               <dl><dt>票号</dt><dd>{ticketNumber(selectedSubscriptions.length)}</dd><dt>生成日期</dt><dd>{generatedDate()}</dd></dl>
             </header>
             <section className="ticket-summary">
-              <div><span>预计每月支出</span><strong>{primary ? formatMonthlySpend(primary.amount, primary.currency) : "—"}</strong></div>
+              <div><span>预计每月支出 · {summaryCurrency}</span><strong>{summaryValue}</strong></div>
               <div><span>订阅数量</span><strong>{selectedSubscriptions.length} 项</strong></div>
               <div><span>最近续费</span><strong>{nearest ? ticketDate(nearest) : "暂无"}</strong></div>
             </section>
