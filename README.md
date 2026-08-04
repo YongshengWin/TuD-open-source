@@ -28,6 +28,7 @@ cp .env.example .env
 # 将 BETTER_AUTH_SECRET 换成：openssl rand -base64 32
 docker compose up -d
 npm ci
+npm run privacy:install-hook
 npm run db:migrate
 npm run dev
 ```
@@ -43,6 +44,8 @@ npm run icons:sync
 ```
 
 来源版本和许可信息见 `lib/icon-source-lock.json` 与 `THIRD_PARTY_NOTICES.md`。
+
+`privacy:install-hook` 会启用仓库内的 `pre-push` 隐私检查。每次推送前会扫描待推送提交中的环境文件、备份、日志、私钥、常见 Token、真实邮箱和本机绝对路径；`npm run test:release` 也会执行同一检查。扫描命中时只报告文件和规则，不回显疑似秘密。
 
 ## 部署到自己的服务器
 

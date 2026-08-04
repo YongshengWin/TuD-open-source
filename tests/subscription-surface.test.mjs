@@ -28,3 +28,17 @@ test("uses one persisted accent for card and detail identity surfaces", async ()
   assert.match(css, /\.detail-amount\s*\{[^}]*background:\s*var\(--paper\)/s);
   assert.doesNotMatch(css, /\.detail-amount\s*\{[^}]*--detail-accent/s);
 });
+
+test("ticket converts the complete monthly total and allows a display currency", async () => {
+  const [dashboard, ticket] = await Promise.all([
+    source("../app/components/Dashboard.tsx"),
+    source("../app/components/SubscriptionTicket.tsx"),
+  ]);
+
+  assert.match(dashboard, /initialSummaryCurrency=\{summaryCurrency\}/);
+  assert.match(dashboard, /initialExchangeRates=\{exchangeRates\}/);
+  assert.match(ticket, /totalMonthlySpendInCurrency\(monthly, summaryCurrency, exchangeRates\)/);
+  assert.match(ticket, /aria-label="订阅票汇总币种"/);
+  assert.match(ticket, /预计每月支出 · \{summaryCurrency\}/);
+  assert.doesNotMatch(ticket, /const primary = monthly\[0\]/);
+});

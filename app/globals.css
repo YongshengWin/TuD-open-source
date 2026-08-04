@@ -539,8 +539,12 @@ nextjs-portal { display: none !important; }
 .ticket-modal-head h2 { margin: 0; display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 22px; letter-spacing: -.02em; }
 .ticket-modal-head p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
 .ticket-modal-actions { display: flex; align-items: center; gap: 9px; }
+.ticket-currency-control { height: 42px; padding: 0 10px 0 12px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: #7b8799; }
+.ticket-currency-control > span { font-size: 10px; font-weight: 650; white-space: nowrap; }
+.ticket-currency-control select { min-width: 48px; border: 0; outline: 0; appearance: none; background: transparent; color: #26364f; font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; }
+.ticket-currency-control svg { flex: 0 0 auto; pointer-events: none; }
 .ticket-modal-actions button { height: 42px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: #526079; font: inherit; font-weight: 700; cursor: pointer; }
-.ticket-modal-actions button:first-child { width: 42px; padding: 0; }
+.ticket-modal-actions > button:not(.ticket-download) { width: 42px; padding: 0; }
 .ticket-modal-actions .ticket-download { border-color: #17243a; background: #17243a; color: #fff; }
 .ticket-modal-actions button:disabled { opacity: .55; cursor: wait; }
 .ticket-error { margin: 12px 24px 0; padding: 10px 12px; border: 1px solid #f1c5bd; border-radius: 9px; background: #fff5f2; color: #bd3f32; font-size: 13px; }
@@ -757,6 +761,9 @@ nextjs-portal { display: none !important; }
   .ticket-modal-head { min-height: 88px; padding: 14px 16px; }
   .ticket-modal-head p { display: none; }
   .ticket-modal-head h2 { font-size: 19px; }
+  .ticket-currency-control { padding: 0 8px; gap: 4px; }
+  .ticket-currency-control > span { display: none; }
+  .ticket-currency-control select { min-width: 43px; }
   .ticket-modal-actions .ticket-download { padding: 0 11px; }
   .ticket-builder { display: flex; flex-direction: column; }
   .ticket-selector { max-height: 230px; flex: 0 0 auto; border-right: 0; border-bottom: 1px solid var(--line); }

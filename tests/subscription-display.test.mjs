@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { convertMonthlySpend, formatCurrencyAmount, formatMonthlySpend, formatSubscriptionDate, monthlySpendByCurrency } from "../lib/subscription-display.ts";
+import { convertMonthlySpend, formatCurrencyAmount, formatMonthlySpend, formatSubscriptionDate, monthlySpendByCurrency, totalMonthlySpendInCurrency } from "../lib/subscription-display.ts";
 
 test("adds a non-breaking space between currency symbols and amounts", () => {
   assert.equal(formatCurrencyAmount(98, "CNY", 2), "¥\u00a098.00");
@@ -35,4 +35,15 @@ test("converts and totals monthly spending into the selected currency", () => {
   ], "EUR", { USD: 1, CNY: 7, EUR: 0.9 });
   assert.equal(total, 18);
   assert.equal(convertMonthlySpend([{ currency: "CAD", amount: 4 }], "EUR", { USD: 1, EUR: 0.9 }), null);
+});
+
+test("uses one selected currency for the complete ticket summary", () => {
+  const monthly = [
+    { currency: "CNY", amount: 102.88 },
+    { currency: "USD", amount: 200.01 },
+  ];
+  assert.ok(Math.abs(totalMonthlySpendInCurrency(monthly, "CNY", { USD: 1, CNY: 7.2 }) - 1542.952) < 1e-9);
+  assert.ok(Math.abs(totalMonthlySpendInCurrency(monthly, "USD", { USD: 1, CNY: 7.2 }) - 214.29888888888888) < 1e-9);
+  assert.equal(totalMonthlySpendInCurrency(monthly, "CNY"), null);
+  assert.equal(totalMonthlySpendInCurrency([{ currency: "USD", amount: 20 }], "USD"), 20);
 });

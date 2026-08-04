@@ -67,3 +67,15 @@ export function convertMonthlySpend(
   }
   return total;
 }
+
+export function totalMonthlySpendInCurrency(
+  items: readonly { currency: string; amount: number }[],
+  targetCurrency: string,
+  usdRates?: Readonly<Record<string, number>> | null,
+) {
+  if (!items.length) return 0;
+  if (items.every((item) => item.currency === targetCurrency)) {
+    return items.reduce((sum, item) => sum + item.amount, 0);
+  }
+  return usdRates ? convertMonthlySpend(items, targetCurrency, usdRates) : null;
+}
