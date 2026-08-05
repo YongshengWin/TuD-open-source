@@ -198,6 +198,7 @@ export function Dashboard({
   const [showAccount, setShowAccount] = useState(false);
   const [showTicket, setShowTicket] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showReminderManager, setShowReminderManager] = useState(false);
   const [profileName, setProfileName] = useState(displayName);
   const [profileAvatar, setProfileAvatar] = useState(profileImage);
   const [summaryCurrency, setSummaryCurrency] = useState<SupportedCurrency>(initialSummaryCurrency);
@@ -316,7 +317,7 @@ export function Dashboard({
         </Link>
 
         <div className="renewal-account-wrap" ref={accountRef}>
-          <button className="account-button" onClick={() => setShowAccount((value) => !value)} aria-expanded={showAccount}>
+          <button className="account-button" onClick={() => setShowAccount((value) => !value)} aria-label={`${profileName} 账户菜单`} aria-expanded={showAccount}>
             <UserAvatar name={profileName} image={profileAvatar} size={34} />
             <strong>{profileName}</strong>
             <ChevronDown size={15} />
@@ -326,6 +327,7 @@ export function Dashboard({
               <button onClick={() => { setShowAccount(false); setShowProfile(true); }}><UserRound size={16} />编辑资料</button>
               <button onClick={() => { window.location.href = "/settings/security"; }}><Settings size={16} />账户与安全</button>
               <button onClick={() => { window.location.href = "/settings/ai"; }}><Sparkles size={16} />AI 连接</button>
+              {reminderEligible && <button onClick={() => { setShowAccount(false); setShowReminderManager(true); }} disabled={!subscriptions.some((item) => item.billingCycle !== "lifetime")}><BellRing size={16} />到期提醒</button>}
               <button onClick={() => { setShowAccount(false); setShowTicket(true); }} disabled={!subscriptions.length}><Ticket size={16} />订阅票</button>
               <button onClick={signOut}><LogOut size={16} />退出登录</button>
             </div>
@@ -453,8 +455,86 @@ export function Dashboard({
           onReordered={setCategories}
         />
       )}
+      {showReminderManager && (
+        <ReminderManagerModal
+          subscriptions={subscriptions}
+          onClose={() => setShowReminderManager(false)}
+          onSaved={(updated) => {
+            const byId = new Map(updated.map((item) => [item.id, item]));
+            setSubscriptions((items) => items.map((item) => byId.get(item.id) ?? item));
+            setDetailSubscription((item) => item ? byId.get(item.id) ?? item : null);
+            setShowReminderManager(false);
+          }}
+        />
+      )}
       {showTicket && <SubscriptionTicketModal subscriptions={subscriptions} categories={categories} initialSummaryCurrency={summaryCurrency} initialExchangeRates={exchangeRates} onClose={() => setShowTicket(false)} />}
     </main>
+  );
+}
+
+function ReminderManagerModal({ subscriptions, onClose, onSaved }: { subscriptions: SubscriptionRecord[]; onClose: () => void; onSaved: (updated: SubscriptionRecord[]) => void }) {
+  const eligible = useMemo(() => subscriptions.filter((item) => item.billingCycle !== "lifetime"), [subscriptions]);
+  const initialEnabled = useMemo(() => new Set(eligible.filter((item) => item.reminderEnabled).map((item) => item.id)), [eligible]);
+  const [enabledIds, setEnabledIds] = useState(() => new Set(initialEnabled));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const changed = eligible.filter((item) => enabledIds.has(item.id) !== initialEnabled.has(item.id));
+  useModalBehavior(onClose);
+
+  function toggle(id: string) {
+    setEnabledIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!changed.length) return;
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/subscriptions/reminders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates: changed.map((item) => ({ id: item.id, enabled: enabledIds.has(item.id) })) }),
+      });
+      const body = await response.json() as SubscriptionRecord[] & { error?: string };
+      if (!response.ok || !Array.isArray(body)) throw new Error(body.error ?? "提醒设置保存失败");
+      onSaved(body);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "提醒设置保存失败");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="modal reminder-manager-modal" role="dialog" aria-modal="true" aria-labelledby="reminder-manager-title">
+        <div className="modal-head"><div><span className="modal-kicker">RENEWAL REMINDERS</span><h2 id="reminder-manager-title">批量管理到期提醒</h2></div><button onClick={onClose} aria-label="关闭"><X size={19} /></button></div>
+        <div className="reminder-manager-summary">
+          <div><BellRing size={18} /><span><strong>到期前 1 天发送邮件</strong><small>已开启 {enabledIds.size} / {eligible.length}</small></span></div>
+          <div><button type="button" onClick={() => setEnabledIds(new Set(eligible.map((item) => item.id)))} disabled={enabledIds.size === eligible.length}>全部开启</button><button type="button" onClick={() => setEnabledIds(new Set())} disabled={!enabledIds.size}>全部关闭</button></div>
+        </div>
+        <form className="reminder-manager-form" onSubmit={save}>
+          <div className="reminder-manager-list" aria-label="可设置提醒的订阅">
+            {eligible.map((item) => (
+              <label className="reminder-manager-row" key={item.id}>
+                <BrandIcon iconId={item.iconId} iconKey={item.iconKey} accent={item.accent} size={40} />
+                <span><strong>{item.name}</strong><small>{item.groupName} · {item.dueDate ? formatSubscriptionDate(item.dueDate) : "未设置日期"}</small></span>
+                <input type="checkbox" checked={enabledIds.has(item.id)} onChange={() => toggle(item.id)} aria-label={`${item.name} 到期提醒`} />
+                <i aria-hidden="true" />
+              </label>
+            ))}
+          </div>
+          <p className="reminder-manager-note">永久订阅不会发送到期提醒。保存后只更新这里发生变化的订阅。</p>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <div className="modal-actions"><button type="button" onClick={onClose}>取消</button><button className="save-button" disabled={saving || !changed.length}>{saving ? "正在保存…" : `保存${changed.length ? ` ${changed.length} 项` : ""}`}</button></div>
+        </form>
+      </section>
+    </div>
   );
 }
 

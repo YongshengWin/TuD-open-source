@@ -42,3 +42,21 @@ test("ticket converts the complete monthly total and allows a display currency",
   assert.match(ticket, /预计每月支出 · \{summaryCurrency\}/);
   assert.doesNotMatch(ticket, /const primary = monthly\[0\]/);
 });
+
+test("account menu exposes user-scoped bulk reminder management", async () => {
+  const [dashboard, route, database] = await Promise.all([
+    source("../app/components/Dashboard.tsx"),
+    source("../app/api/subscriptions/reminders/route.ts"),
+    source("../db/subscriptions.ts"),
+  ]);
+
+  assert.match(dashboard, /<BellRing size=\{16\} \/>到期提醒/);
+  assert.match(dashboard, /批量管理到期提醒/);
+  assert.match(dashboard, /fetch\("\/api\/subscriptions\/reminders"/);
+  assert.match(dashboard, /changed\.map\(\(item\) => \(\{ id: item\.id, enabled: enabledIds\.has\(item\.id\) \}\)\)/);
+  assert.match(route, /canUseSubscriptionReminders\(currentSession\.user\.email\)/);
+  assert.match(route, /updateSubscriptionReminders\(currentSession\.user\.id, updates\)/);
+  assert.match(database, /eq\(subscriptions\.userId, userId\)/);
+  assert.match(database, /eq\(subscriptions\.isArchived, false\)/);
+  assert.match(database, /ne\(subscriptions\.billingCycle, "lifetime"\)/);
+});
