@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, count, eq, inArray, max, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, max, ne, sql } from "drizzle-orm";
 import {
   addBillingCycle,
   isBillingCycle,
@@ -7,6 +7,7 @@ import {
 } from "../lib/subscription-options";
 import { normalizeBrandSelection } from "../lib/brand-catalog.server";
 import { normalizeSubscriptionCardAccent } from "../lib/subscription-card-accent";
+import type { SubscriptionReminderUpdate } from "../lib/subscription-reminder";
 import { assertCompleteSubscriptionOrder, MAX_ORDERED_SUBSCRIPTIONS, normalizeSubscriptionOrder } from "../lib/subscription-order";
 import { db } from "./index";
 import { subscriptionCategories, subscriptions } from "./schema";
@@ -205,6 +206,40 @@ export async function updateSubscription(userId: string, id: string, input: Subs
       .returning();
     if (!updated) throw new Error("订阅不存在");
     return updated;
+  });
+}
+
+export async function updateSubscriptionReminders(userId: string, updates: SubscriptionReminderUpdate[]) {
+  if (!updates.length) return [];
+  const ids = updates.map((item) => item.id);
+  return db.transaction(async (tx) => {
+    const current = await tx.select({ id: subscriptions.id })
+      .from(subscriptions)
+      .where(and(
+        eq(subscriptions.userId, userId),
+        eq(subscriptions.isArchived, false),
+        ne(subscriptions.billingCycle, "lifetime"),
+        inArray(subscriptions.id, ids),
+      ))
+      .for("update");
+    if (current.length !== ids.length) throw new Error("订阅列表已变化，请刷新后重试");
+
+    const cases = sql.join(
+      updates.map((item) => sql`when ${subscriptions.id} = ${item.id} then ${item.enabled}`),
+      sql.raw(" "),
+    );
+    return tx.update(subscriptions)
+      .set({
+        reminderEnabled: sql<boolean>`case ${cases} else ${subscriptions.reminderEnabled} end`,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(subscriptions.userId, userId),
+        eq(subscriptions.isArchived, false),
+        ne(subscriptions.billingCycle, "lifetime"),
+        inArray(subscriptions.id, ids),
+      ))
+      .returning();
   });
 }
 
