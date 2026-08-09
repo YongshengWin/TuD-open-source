@@ -383,12 +383,14 @@ nextjs-portal { display: none !important; }
 .date-field-trigger:hover { border-color: #c6d0dd; background: #fdfefe; }
 .date-field-trigger[aria-expanded="true"] { border-color: #8fb1f4; box-shadow: 0 0 0 3px rgb(39 104 237 / 9%); }
 .date-field-trigger svg { color: #65748a; }
-.date-popover { width: 292px; padding: 14px; position: absolute; top: calc(100% + 8px); right: 0; z-index: 120; border: 1px solid #dce3ec; border-radius: 16px; background: rgb(255 255 255 / 98%); box-shadow: 0 2px 6px rgb(28 42 64 / 8%), 0 20px 46px rgb(28 42 64 / 18%); backdrop-filter: blur(14px); animation: date-popover-in .16s cubic-bezier(.2,.8,.2,1); }
-.date-popover-head { min-height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.date-popover { width: min(292px, calc(100vw - 36px)); padding: 14px; position: absolute; top: calc(100% + 8px); right: 0; z-index: 120; border: 1px solid #dce3ec; border-radius: 16px; background: rgb(255 255 255 / 98%); box-shadow: 0 2px 6px rgb(28 42 64 / 8%), 0 20px 46px rgb(28 42 64 / 18%); backdrop-filter: blur(14px); animation: date-popover-in .16s cubic-bezier(.2,.8,.2,1); }
+.date-popover-head { min-height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .date-popover-head > div { display: flex; gap: 4px; }
 .date-quick-selects { min-width: 0; }
-.date-quick-selects select { min-height: 32px; padding: 0 24px 0 8px; border: 1px solid #dce3ec; border-radius: 9px; outline: 0; background: white; color: #344057; font-size: 11px; font-weight: 650; cursor: pointer; }
-.date-quick-selects select:focus { border-color: #8fb1f4; box-shadow: 0 0 0 2px rgb(39 104 237 / 9%); }
+.subscription-form .date-quick-selects select { width: auto; min-height: 32px; padding: 0 18px 0 8px; flex: 0 0 auto; border: 1px solid #dce3ec; border-radius: 9px; outline: 0; background: white; color: #344057; font-size: 11px; font-weight: 650; cursor: pointer; }
+.subscription-form .date-quick-selects select:first-child { min-width: 88px; }
+.subscription-form .date-quick-selects select:last-child { min-width: 64px; }
+.subscription-form .date-quick-selects select:focus { border-color: #8fb1f4; box-shadow: 0 0 0 2px rgb(39 104 237 / 9%); }
 .date-popover-head button { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 9px; background: transparent; color: #617086; cursor: pointer; }
 .date-popover-head button:hover { background: #f0f4f9; color: var(--blue); }
 .date-weekdays, .date-days { display: grid; grid-template-columns: repeat(7, 1fr); }
