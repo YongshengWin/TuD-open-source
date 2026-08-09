@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, Globe2, Palette, Search, Type, X } from "lucide-react";
-import { brandSourceLabels, type BrandChoice } from "../../lib/brand-options";
+import { brandSourceLabels, type BrandChoice, websiteBrandChoiceFromResponse } from "../../lib/brand-options";
 import {
   MAX_MONOGRAM_GRAPHEMES,
   monogramAccent,
@@ -216,10 +216,9 @@ export function BrandPicker({ value, website, onChange, onWebsiteChange }: Brand
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ website: target.value }),
       });
-      const body = await response.json() as { icon?: BrandChoice; error?: string } & Partial<BrandChoice>;
+      const body = await response.json() as { icon?: unknown; error?: string } & Record<string, unknown>;
       if (!response.ok) throw new Error(body.error ?? "没有从官网找到可用图标");
-      const discovered = (body.icon ?? body) as BrandChoice;
-      if (!discovered.iconId) throw new Error("官网图标没有写入服务端索引");
+      const discovered = websiteBrandChoiceFromResponse(body.icon ?? body, target.hostname);
       setCandidate(discovered);
       setResults((current) => [discovered, ...current.filter((item) => choiceKey(item) !== choiceKey(discovered))]);
       setCandidateWebsite(target.value);
