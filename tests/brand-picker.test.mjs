@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { websiteBrandChoiceFromResponse } from "../lib/brand-options.ts";
 
 async function source(path) {
   return readFile(new URL(path, import.meta.url), "utf8");
@@ -47,4 +48,23 @@ test("all bundled payment artwork is rendered instead of the fallback icon", asy
     assert.match(icon, new RegExp(`"${key}"`), `${key} must be a recognized local icon`);
     assert.match(icon, new RegExp(`fullColorIcons[\\s\\S]*"${key}"`), `${key} must preserve its original colors`);
   }
+});
+
+test("website discovery responses always produce a renderable legacy icon key", () => {
+  const choice = websiteBrandChoiceFromResponse({
+    iconId: "website:greencloudvps.com",
+    title: "GreenCloud - Affordable KVM and Windows VPS",
+    accent: "blue",
+    source: "website",
+    domain: "greencloudvps.com",
+  }, "greencloudvps.com");
+
+  assert.equal(choice.iconKey, "fallback");
+  assert.equal(choice.iconId, "website:greencloudvps.com");
+  assert.equal(choice.source, "website");
+  assert.equal(choice.domain, "greencloudvps.com");
+  assert.throws(
+    () => websiteBrandChoiceFromResponse({ title: "Missing ID" }, "greencloudvps.com"),
+    /没有写入服务端索引/,
+  );
 });

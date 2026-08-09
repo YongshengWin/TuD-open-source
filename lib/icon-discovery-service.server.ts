@@ -1,5 +1,6 @@
 import "server-only";
 import { createOrUpdateWebsiteDomainIcon, getIconById, normalizeWebsiteIconDomain } from "../db/icons";
+import type { BrandChoice } from "./brand-options";
 import { discoverOfficialDomainIcon, discoverWebsiteIcon, WebsiteIconDiscoveryError } from "./website-icon-discovery.server";
 
 const DISCOVERY_WINDOW_MS = 10 * 60 * 1_000;
@@ -30,9 +31,10 @@ function indexedIcon(catalog: {
   accent: string | null;
   license: string | null;
   websiteDomain: string | null;
-}) {
+}): BrandChoice {
   return {
     iconId: catalog.id,
+    iconKey: "fallback",
     title: catalog.displayName,
     accent: catalog.accent ?? "blue",
     source: "website" as const,
