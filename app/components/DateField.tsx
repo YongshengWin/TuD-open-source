@@ -44,6 +44,7 @@ export function DateField({ label, name, defaultValue, required = false }: DateF
   const [visibleMonth, setVisibleMonth] = useState(() => safeMonth(defaultValue));
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const buttonId = useId();
   const popoverId = useId();
   const today = localDateKey();
@@ -74,6 +75,28 @@ export function DateField({ label, name, defaultValue, required = false }: DateF
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const frame = window.requestAnimationFrame(() => {
+      const popover = popoverRef.current;
+      if (!popover) return;
+      const scrollParent = popover.closest<HTMLElement>(".modal");
+      if (!scrollParent) {
+        popover.scrollIntoView({ block: "nearest", inline: "nearest" });
+        return;
+      }
+
+      const safeInset = 12;
+      const popoverBounds = popover.getBoundingClientRect();
+      const parentBounds = scrollParent.getBoundingClientRect();
+      const bottomOverflow = popoverBounds.bottom - (parentBounds.bottom - safeInset);
+      const topOverflow = parentBounds.top + safeInset - popoverBounds.top;
+      if (bottomOverflow > 0) scrollParent.scrollTop += Math.ceil(bottomOverflow);
+      else if (topOverflow > 0) scrollParent.scrollTop -= Math.ceil(topOverflow);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [open]);
+
   function chooseDate(date: string) {
     setValue(date);
     setVisibleMonth(safeMonth(date));
@@ -101,7 +124,7 @@ export function DateField({ label, name, defaultValue, required = false }: DateF
       </button>
 
       {open && (
-        <div id={popoverId} className="date-popover" role="dialog" aria-label="选择日期">
+        <div ref={popoverRef} id={popoverId} className="date-popover" role="dialog" aria-label="选择日期">
           <div className="date-popover-head">
             <div className="date-quick-selects">
               <select aria-label="选择年份" value={visibleMonth.year} onChange={(event) => setVisibleMonth((month) => ({ ...month, year: Number(event.target.value) }))}>

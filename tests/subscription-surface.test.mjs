@@ -29,6 +29,21 @@ test("uses one persisted accent for card and detail identity surfaces", async ()
   assert.doesNotMatch(css, /\.detail-amount\s*\{[^}]*--detail-accent/s);
 });
 
+test("keeps date picker header controls fully visible", async () => {
+  const [dateField, css] = await Promise.all([
+    source("../app/components/DateField.tsx"),
+    source("../app/globals.css"),
+  ]);
+
+  assert.match(dateField, /const scrollParent = popover\.closest<HTMLElement>\("\.modal"\)/);
+  assert.match(dateField, /if \(bottomOverflow > 0\) scrollParent\.scrollTop \+= Math\.ceil\(bottomOverflow\)/);
+  assert.match(css, /\.date-popover\s*\{[^}]*width:\s*min\(292px, calc\(100vw - 36px\)\)/s);
+  assert.match(css, /\.subscription-form \.date-quick-selects select\s*\{[^}]*width:\s*auto;[^}]*flex:\s*0 0 auto;[^}]*font-size:\s*11px/s);
+  assert.match(css, /\.date-popover-head\s*\{[^}]*gap:\s*8px/s);
+  assert.match(css, /\.subscription-form \.date-quick-selects select:first-child\s*\{[^}]*min-width:\s*88px/s);
+  assert.match(css, /\.subscription-form \.date-quick-selects select:last-child\s*\{[^}]*min-width:\s*64px/s);
+});
+
 test("ticket converts the complete monthly total and allows a display currency", async () => {
   const [dashboard, ticket] = await Promise.all([
     source("../app/components/Dashboard.tsx"),
