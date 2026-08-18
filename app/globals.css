@@ -514,6 +514,7 @@ nextjs-portal { display: none !important; }
 .detail-title-wrap > div > span { color: #748196; font-size: 11px; font-weight: 620; }
 .detail-title-wrap h2 { margin: 5px 0 0; overflow: hidden; color: var(--ink); font-size: 24px; font-weight: 710; letter-spacing: -.04em; text-overflow: ellipsis; white-space: nowrap; }
 .detail-close { width: 40px; height: 40px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid rgb(255 255 255 / 72%); border-radius: 11px; background: rgb(255 255 255 / 78%); color: #536075; box-shadow: 0 3px 10px rgb(31 45 67 / 5%); cursor: pointer; }
+.detail-close:disabled { opacity: .55; cursor: wait; }
 .detail-amount { min-height: 76px; margin-top: 12px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: var(--paper); color: var(--ink); box-shadow: var(--shadow-sm); }
 .detail-amount span { color: #748196; font-size: 11px; font-weight: 560; }
 .detail-amount strong { color: var(--ink); font-size: 30px; font-weight: 710; letter-spacing: -.045em; }
@@ -527,10 +528,20 @@ nextjs-portal { display: none !important; }
 .detail-grid .detail-empty { color: #99a3b1; font-weight: 450; }
 .detail-actions { margin-top: 0; padding-top: 14px; display: flex; align-items: center; gap: 9px; border-top: 1px solid var(--line); }
 .detail-actions .save-button { margin-left: auto; }
+.delete-detail-button { min-height: 38px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #edc9bf; border-radius: 10px; background: #fffaf8; color: var(--danger); font-size: 11px; font-weight: 650; cursor: pointer; }
+.delete-detail-button:hover { border-color: #db9f8f; background: var(--danger-soft); }
 .renew-detail-button { min-height: 38px; padding: 0 14px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #b9cae2; border-radius: 10px; background: #f7faff; color: #2b62bb; font-size: 11px; font-weight: 650; cursor: pointer; }
 .renew-detail-button:disabled { opacity: .55; cursor: wait; }
 .detail-feedback { min-height: 13px; margin: 5px 0 0; color: #2d7b58; font-size: 10px; }
 .detail-feedback.error { color: var(--danger); }
+.detail-delete-confirm { margin-top: 13px; padding: 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px 16px; border: 1px solid #efcfc7; border-radius: 12px; background: #fff9f7; }
+.detail-delete-confirm strong { color: #633b34; font-size: 12px; }
+.detail-delete-confirm p { margin: 4px 0 0; color: #80635d; font-size: 10px; line-height: 1.55; }
+.detail-delete-confirm .detail-delete-error { grid-column: 1 / -1; margin: 0; color: var(--danger); }
+.detail-delete-actions { display: flex; align-items: center; gap: 7px; }
+.detail-delete-actions button { min-height: 36px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line); border-radius: 9px; background: white; font-size: 10px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+.detail-delete-actions .delete-confirm-button { border-color: #c95635; background: #c95635; color: white; }
+.detail-delete-actions button:disabled { opacity: .55; cursor: wait; }
 .detail-modal .subscription-form { margin-top: 24px; }
 
 /* Subscription pass */
@@ -832,6 +843,12 @@ nextjs-portal { display: none !important; }
   .detail-modal { width: 100%; max-height: calc(100dvh - 24px); padding: 20px 17px; border-radius: 18px; }
   .detail-title-wrap h2 { font-size: 20px; }
   .detail-grid { grid-template-columns: 1fr 1fr; }
+  .detail-actions { flex-wrap: wrap; }
+  .detail-actions .delete-detail-button, .detail-actions .renew-detail-button { flex: 1 1 auto; justify-content: center; }
+  .detail-actions .save-button { margin-left: 0; flex: 1 1 100%; }
+  .detail-delete-confirm { grid-template-columns: 1fr; }
+  .detail-delete-actions { width: 100%; }
+  .detail-delete-actions button { flex: 1; }
   .profile-avatar-editor { grid-template-columns: 68px minmax(0, 1fr); }
   .profile-avatar-editor .user-avatar { width: 68px !important; height: 68px !important; }
   .reminder-manager-summary { align-items: stretch; flex-direction: column; }

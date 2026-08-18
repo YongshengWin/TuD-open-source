@@ -432,6 +432,10 @@ export function Dashboard({
           reminderEligible={reminderEligible}
           onClose={() => setDetailSubscription(null)}
           onSaved={replaceSubscription}
+          onDeleted={(id) => {
+            setSubscriptions((items) => items.filter((item) => item.id !== id));
+            setDetailSubscription(null);
+          }}
         />
       )}
       {showProfile && (
@@ -666,14 +670,24 @@ function AddSubscriptionModal({ categories, reminderEligible, onClose, onSaved }
   );
 }
 
-function SubscriptionDetailModal({ item, categories, reminderEligible, onClose, onSaved }: { item: SubscriptionRecord; categories: string[]; reminderEligible: boolean; onClose: () => void; onSaved: (record: SubscriptionRecord) => void }) {
+function SubscriptionDetailModal({ item, categories, reminderEligible, onClose, onSaved, onDeleted }: { item: SubscriptionRecord; categories: string[]; reminderEligible: boolean; onClose: () => void; onSaved: (record: SubscriptionRecord) => void; onDeleted: (id: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [renewing, setRenewing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  useModalBehavior(onClose);
+  const deleteCancelRef = useRef<HTMLButtonElement>(null);
+  const closeDetail = useCallback(() => {
+    if (!deleting) onClose();
+  }, [deleting, onClose]);
+  useModalBehavior(closeDetail);
   const surface = useResolvedSubscriptionAccent(item);
   const surfaceStyle = subscriptionSurfaceStyle(surface.accent);
+
+  useEffect(() => {
+    if (confirmingDelete) deleteCancelRef.current?.focus();
+  }, [confirmingDelete]);
 
   async function renew() {
     setRenewing(true);
@@ -696,15 +710,33 @@ function SubscriptionDetailModal({ item, categories, reminderEligible, onClose, 
     }
   }
 
+  async function remove() {
+    setDeleting(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/subscriptions/${encodeURIComponent(item.id)}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: item.id }),
+      });
+      const body = await response.json() as { deleted?: { id: string }; error?: string };
+      if (!response.ok || body.deleted?.id !== item.id) throw new Error(body.error ?? "删除失败，请刷新后重试");
+      onDeleted(item.id);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "删除失败");
+      setDeleting(false);
+    }
+  }
+
   return (
-    <div className="modal-backdrop detail-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="modal-backdrop detail-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeDetail()}>
       <section className={`modal detail-modal ${editing ? "editing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="detail-title">
         <div className="detail-head" style={surfaceStyle}>
           <div className="detail-title-wrap">
             <BrandIcon iconId={item.iconId} iconKey={item.iconKey} accent={item.accent} size={62} onColorResolved={surface.onColorResolved} />
             <div><span>{editing ? "编辑订阅" : item.groupName}</span><h2 id="detail-title">{item.name}</h2></div>
           </div>
-          <button className="detail-close" onClick={onClose} aria-label="关闭"><X size={20} /></button>
+          <button className="detail-close" onClick={closeDetail} aria-label="关闭" disabled={deleting}><X size={20} /></button>
         </div>
 
         {editing ? (
@@ -728,11 +760,25 @@ function SubscriptionDetailModal({ item, categories, reminderEligible, onClose, 
               {item.website && <div className="detail-wide"><dt>官网</dt><dd><a href={item.website} target="_blank" rel="noreferrer">打开官网 <ExternalLink size={13} /></a></dd></div>}
               <div className="detail-wide"><dt>备注</dt><dd className={item.notes ? "" : "detail-empty"}>{item.notes || "暂无备注"}</dd></div>
             </dl>
-            <p className={`detail-feedback ${error ? "error" : ""}`} aria-live="polite">{error || message}</p>
-            <div className="detail-actions">
-              {isAutoRenewableCycle(item.billingCycle) && <button className="renew-detail-button" onClick={renew} disabled={renewing}><Check size={15} />{renewing ? "正在更新…" : "标记已续费"}</button>}
-              <button className="save-button" onClick={() => { setEditing(true); setMessage(""); setError(""); }}><Pencil size={15} />编辑订阅</button>
-            </div>
+            {confirmingDelete ? (
+              <div className="detail-delete-confirm" role="alert" aria-live="assertive">
+                <div><strong>删除“{item.name}”？</strong><p>删除后无法恢复，相关的提醒记录也会一并移除。</p></div>
+                {error && <p className="detail-delete-error">{error}</p>}
+                <div className="detail-delete-actions">
+                  <button ref={deleteCancelRef} type="button" onClick={() => { setConfirmingDelete(false); setError(""); }} disabled={deleting}>取消</button>
+                  <button className="delete-confirm-button" type="button" onClick={() => void remove()} disabled={deleting}><Trash2 size={15} />{deleting ? "正在删除…" : "确认删除"}</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className={`detail-feedback ${error ? "error" : ""}`} aria-live="polite">{error || message}</p>
+                <div className="detail-actions">
+                  <button className="delete-detail-button" onClick={() => { setConfirmingDelete(true); setMessage(""); setError(""); }}><Trash2 size={15} />删除订阅</button>
+                  {isAutoRenewableCycle(item.billingCycle) && <button className="renew-detail-button" onClick={renew} disabled={renewing}><Check size={15} />{renewing ? "正在更新…" : "标记已续费"}</button>}
+                  <button className="save-button" onClick={() => { setEditing(true); setMessage(""); setError(""); }}><Pencil size={15} />编辑订阅</button>
+                </div>
+              </>
+            )}
           </>
         )}
       </section>
