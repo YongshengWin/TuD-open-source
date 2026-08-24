@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, Globe2, Palette, Search, Type, X } from "lucide-react";
+import { readApiJsonObject } from "../../lib/api-response";
 import { brandSourceLabels, type BrandChoice, websiteBrandChoiceFromResponse } from "../../lib/brand-options";
 import {
   MAX_MONOGRAM_GRAPHEMES,
@@ -216,8 +217,11 @@ export function BrandPicker({ value, website, onChange, onWebsiteChange }: Brand
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ website: target.value }),
       });
-      const body = await response.json() as { icon?: unknown; error?: string } & Record<string, unknown>;
-      if (!response.ok) throw new Error(body.error ?? "没有从官网找到可用图标");
+      const body = await readApiJsonObject(response, "官网图标获取失败，请稍后重试");
+      if (!response.ok) {
+        const responseError = typeof body.error === "string" ? body.error.trim() : "";
+        throw new Error(responseError || "没有从官网找到可用图标");
+      }
       const discovered = websiteBrandChoiceFromResponse(body.icon ?? body, target.hostname);
       setCandidate(discovered);
       setResults((current) => [discovered, ...current.filter((item) => choiceKey(item) !== choiceKey(discovered))]);

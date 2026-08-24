@@ -31,6 +31,21 @@ export const emptyBrandChoice: BrandChoice = {
   sourceLabel: "默认图标",
 };
 
+function responseBrandSource(value: unknown): BrandChoice["source"] {
+  return typeof value === "string" && Object.hasOwn(brandSourceLabels, value)
+    ? value as BrandChoice["source"]
+    : "website";
+}
+
+function responseIconKey(value: unknown, iconId: string) {
+  const iconKey = typeof value === "string" ? value.trim() : "";
+  if (/^[a-z0-9][a-z0-9:._-]{0,319}$/i.test(iconKey)) return iconKey;
+  const simpleSlug = iconId.match(/^simple-icons:([a-z0-9_]{1,80})$/)?.[1];
+  if (simpleSlug) return `simple-${simpleSlug}`;
+  const localKey = iconId.match(/^local:([a-z0-9_]{1,80})$/)?.[1];
+  return localKey ?? "fallback";
+}
+
 export function websiteBrandChoiceFromResponse(raw: unknown, fallbackHostname: string): BrandChoice {
   if (!raw || typeof raw !== "object") throw new Error("官网图标响应格式不正确");
   const record = raw as Record<string, unknown>;
@@ -52,17 +67,20 @@ export function websiteBrandChoiceFromResponse(raw: unknown, fallbackHostname: s
   const license = typeof record.license === "string" && record.license.trim()
     ? record.license.trim().slice(0, 160)
     : undefined;
+  const source = responseBrandSource(record.source);
+  const sourceLabel = typeof record.sourceLabel === "string" && record.sourceLabel.trim()
+    ? record.sourceLabel.trim().slice(0, 80)
+    : source === "website" ? "官方网站" : brandSourceLabels[source];
 
   return {
     iconId,
-    // Website assets always render through the indexed same-origin route.
-    // Keep the legacy key explicit so older or malformed API responses cannot
-    // crash the preview while React renders the newly discovered choice.
-    iconKey: "fallback",
+    // Catalog hits keep their bundled fast path; malformed or legacy responses
+    // still fall back to the indexed same-origin asset route through iconId.
+    iconKey: responseIconKey(record.iconKey, iconId),
     title,
     accent,
-    source: "website",
-    sourceLabel: "官方网站",
+    source,
+    sourceLabel,
     license,
     domain,
   };
