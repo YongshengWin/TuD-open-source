@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
-import { forbiddenPathReason, scanText } from "../scripts/privacy-check.mjs";
+import { commitsFromPrePush, forbiddenPathReason, runPrivacyCheck, scanText } from "../scripts/privacy-check.mjs";
+
+const ZERO_SHA = "0".repeat(40);
+
+function git(root, args) {
+  return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+}
 
 test("blocks private deployment files and credential artifacts", () => {
   assert.ok(forbiddenPathReason(".env.production"));
@@ -31,4 +41,51 @@ test("permits environment references and documented placeholders", () => {
     "const secret = process.env.BETTER_AUTH_SECRET;",
   ].join("\n");
   assert.deepEqual(scanText(example, ".env.production.example"), []);
+});
+
+test("new branch checks only omit commits already present on the target remote", () => {
+  const root = mkdtempSync(join(tmpdir(), "tud-privacy-check-"));
+
+  try {
+    git(root, ["init", "--quiet", "--initial-branch=main"]);
+    git(root, ["config", "user.name", "Privacy Check Test"]);
+    git(root, ["config", "user.email", ["legacy", "private.invalid"].join("@")]);
+    git(root, ["remote", "add", "origin", "https://example.com/origin.git"]);
+    git(root, ["remote", "add", "backup", "https://example.com/backup.git"]);
+
+    const fixture = join(root, "fixture.txt");
+    writeFileSync(fixture, "already published\n");
+    git(root, ["add", "fixture.txt"]);
+    git(root, ["commit", "--quiet", "-m", "Existing remote commit"]);
+    const remoteCommit = git(root, ["rev-parse", "HEAD"]);
+    git(root, ["update-ref", "refs/remotes/origin/main", remoteCommit]);
+
+    git(root, ["config", "user.email", ["privacy-check", "users.noreply.github.com"].join("@")]);
+    appendFileSync(fixture, "published only to backup\n");
+    git(root, ["add", "fixture.txt"]);
+    git(root, ["commit", "--quiet", "-m", "Backup-only commit"]);
+    const backupCommit = git(root, ["rev-parse", "HEAD"]);
+    git(root, ["update-ref", "refs/remotes/backup/main", backupCommit]);
+
+    appendFileSync(fixture, "new branch change\n");
+    git(root, ["add", "fixture.txt"]);
+    git(root, ["commit", "--quiet", "-m", "New branch commit"]);
+    const localCommit = git(root, ["rev-parse", "HEAD"]);
+    const prePushInput = `refs/heads/topic ${localCommit} refs/heads/topic ${ZERO_SHA}\n`;
+    const existingBranchInput = `refs/heads/topic ${localCommit} refs/heads/topic ${remoteCommit}\n`;
+    const deleteInput = `refs/heads/topic ${ZERO_SHA} refs/heads/topic ${remoteCommit}\n`;
+
+    assert.deepEqual([...commitsFromPrePush(root, prePushInput, "origin")], [localCommit, backupCommit]);
+    assert.deepEqual([...commitsFromPrePush(root, prePushInput, "backup")], [localCommit]);
+    assert.deepEqual([...commitsFromPrePush(root, prePushInput, "https://example.com/direct.git")], [
+      localCommit,
+      backupCommit,
+      remoteCommit,
+    ]);
+    assert.deepEqual([...commitsFromPrePush(root, existingBranchInput)], [localCommit, backupCommit]);
+    assert.deepEqual([...commitsFromPrePush(root, deleteInput, "origin")], []);
+    assert.equal(runPrivacyCheck({ root, prePushInput, prePushRemote: "origin" }), 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
