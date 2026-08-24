@@ -48,7 +48,7 @@
     "eslint-config-next": "16.2.6",
     "simple-icons": "16.27.0",
     "tailwindcss": "4.2.1",
-    "typescript": "5.9.3"
+    "typescript": "7.0.2"
   },
   "overrides": {
     "@esbuild-kit/core-utils": {
