@@ -46,7 +46,7 @@
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
-    "simple-icons": "16.27.0",
+    "simple-icons": "16.27.1",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3"
   },
