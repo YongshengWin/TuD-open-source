@@ -114,14 +114,20 @@ function scanCurrentTree(root, findings) {
   }
 }
 
-function commitsFromPrePush(root, input) {
+export function commitsFromPrePush(root, input, remoteName = null) {
   const commits = new Set();
+  const configuredRemotes = new Set(git(["remote"], { cwd: root }).trim().split("\n").filter(Boolean));
+  const targetRemoteIsConfigured = remoteName && configuredRemotes.has(remoteName);
+
   for (const line of input.trim().split("\n").filter(Boolean)) {
     const [, localSha, , remoteSha] = line.trim().split(/\s+/);
     if (!localSha || ZERO_SHA.test(localSha)) continue;
-    const args = remoteSha && !ZERO_SHA.test(remoteSha)
-      ? ["rev-list", `${remoteSha}..${localSha}`]
-      : ["rev-list", localSha];
+    const remoteBranchExists = remoteSha && !ZERO_SHA.test(remoteSha);
+    const excludedRevisions = [
+      ...(remoteBranchExists ? [remoteSha] : []),
+      ...(targetRemoteIsConfigured ? [`--remotes=${remoteName}`] : []),
+    ];
+    const args = ["rev-list", localSha, ...(excludedRevisions.length ? ["--not", ...excludedRevisions] : [])];
     for (const commit of git(args, { cwd: root }).trim().split("\n").filter(Boolean)) commits.add(commit);
   }
   return commits;
@@ -162,15 +168,21 @@ function report(findings) {
   return 1;
 }
 
-export function runPrivacyCheck({ root = git(["rev-parse", "--show-toplevel"]).trim(), prePushInput = null } = {}) {
+export function runPrivacyCheck({
+  root = git(["rev-parse", "--show-toplevel"]).trim(),
+  prePushInput = null,
+  prePushRemote = null,
+} = {}) {
   const findings = [];
   if (prePushInput == null) scanCurrentTree(root, findings);
-  else scanCommits(root, commitsFromPrePush(root, prePushInput), findings);
+  else scanCommits(root, commitsFromPrePush(root, prePushInput, prePushRemote), findings);
   return report(findings);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const prePush = process.argv.includes("--pre-push");
+  const remoteOptionIndex = process.argv.indexOf("--remote");
+  const prePushRemote = remoteOptionIndex >= 0 ? process.argv[remoteOptionIndex + 1] || null : null;
   const input = prePush ? readFileSync(0, "utf8") : null;
-  process.exitCode = runPrivacyCheck({ prePushInput: input });
+  process.exitCode = runPrivacyCheck({ prePushInput: input, prePushRemote });
 }
