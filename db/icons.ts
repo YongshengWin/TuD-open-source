@@ -1,7 +1,8 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { catalogDomainMatchCandidates } from "../lib/icon-domain-match";
 import {
   monogramIconId,
   monogramUpstreamKey,
@@ -473,6 +474,56 @@ export async function searchIcons(rawQuery: unknown, options: {
     .where(and(eq(iconCatalog.isActive, true), searchCondition, providerCondition))
     .orderBy(...ordering)
     .limit(limit);
+}
+
+export async function findIconByWebsiteDomain(rawWebsite: unknown, options: {
+  providers?: unknown;
+} = {}) {
+  const domain = normalizeWebsiteIconDomain(rawWebsite);
+  const candidates = catalogDomainMatchCandidates(domain);
+  if (candidates.length === 0) return null;
+  const providers = Array.isArray(options.providers)
+    ? [...new Set(options.providers.map(normalizeIconProvider))].slice(0, 12)
+    : [];
+  const providerCondition = providers.length > 0
+    ? inArray(iconCatalog.provider, providers)
+    : sql`true`;
+
+  const [record] = await db.select({
+    id: iconCatalog.id,
+    provider: iconCatalog.provider,
+    upstreamKey: iconCatalog.upstreamKey,
+    displayName: iconCatalog.displayName,
+    aliases: iconCatalog.aliases,
+    priority: iconCatalog.priority,
+    mimeType: iconCatalog.mimeType,
+    license: iconCatalog.license,
+    sourcePage: iconCatalog.sourcePage,
+    sourceRevision: iconCatalog.sourceRevision,
+    assetUrl: iconCatalog.assetUrl,
+    websiteDomain: iconCatalog.websiteDomain,
+    accent: iconCatalog.accent,
+    assetSha256: iconCatalog.assetSha256,
+    metadata: iconCatalog.metadata,
+    hasAsset: sql<boolean>`${iconCatalog.assetSha256} is not null`,
+  }).from(iconCatalog)
+    .where(and(
+      eq(iconCatalog.isActive, true),
+      sql`${iconCatalog.provider} <> ${WEBSITE_PROVIDER}`,
+      inArray(iconCatalog.websiteDomain, candidates),
+      providerCondition,
+    ))
+    // Prefer a product-specific subdomain over its parent organization, then
+    // retain the same deterministic provider ordering as catalog search.
+    .orderBy(
+      desc(sql<number>`length(${iconCatalog.websiteDomain})`),
+      asc(iconCatalog.priority),
+      asc(iconCatalog.displayName),
+      asc(iconCatalog.provider),
+      asc(iconCatalog.upstreamKey),
+    )
+    .limit(1);
+  return record ?? null;
 }
 
 export async function getIconById(rawId: unknown) {

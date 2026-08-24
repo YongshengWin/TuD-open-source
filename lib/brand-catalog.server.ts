@@ -1,6 +1,7 @@
 import "server-only";
 import {
   ensureIconCatalogSeed,
+  findIconByWebsiteDomain,
   getIconCatalogState,
   getIconById,
   searchIcons,
@@ -135,6 +136,12 @@ export async function searchBrands(rawQuery: string, rawLimit = 24): Promise<Bra
     providers: query ? SEARCH_PROVIDERS : KNOWN_PROVIDERS,
   });
   return records.map(brandChoice);
+}
+
+export async function findBrandByWebsite(rawWebsite: unknown): Promise<BrandChoice | null> {
+  await ensureServerIconCatalog();
+  const record = await findIconByWebsiteDomain(rawWebsite, { providers: KNOWN_PROVIDERS });
+  return record ? brandChoice(record) : null;
 }
 
 function normalizeLegacyIconKey(rawIconKey: unknown) {

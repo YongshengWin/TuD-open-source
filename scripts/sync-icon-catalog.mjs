@@ -5,9 +5,11 @@ import { fileURLToPath } from "node:url";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const lockPath = resolve(projectRoot, "lib/icon-source-lock.json");
+const domainOverridesPath = resolve(projectRoot, "lib/icon-catalog-domain-overrides.json");
 const outputPath = resolve(projectRoot, "lib/generated/icon-catalog.json");
 const outputVersion = 1;
 const neutralAccent = "#64748b";
+const catalogDomainOverrides = JSON.parse(await readFile(domainOverridesPath, "utf8"));
 
 const mimeTypes = {
   ".png": "image/png",
@@ -91,6 +93,7 @@ const localMetadata = {
 // layer to every provider so a Chinese query can compare the available artwork
 // styles instead of being forced onto the Simple Icons fallback.
 const localizedBrandAliases = [
+  { pattern: /^(?:ali-?yun|alibaba-?cloud)$/, aliases: ["阿里云"] },
   { pattern: /^alipay$/, aliases: ["支付宝"] },
   { pattern: /^bilibili(?:-\d+)?$/, aliases: ["哔哩哔哩", "B站"] },
   { pattern: /^(?:sina)?weibo$/, aliases: ["微博", "新浪微博"] },
@@ -189,8 +192,9 @@ async function fetchJson(url, label) {
 }
 
 function makeEntry(source, upstreamKey, fields) {
+  const id = `${source.provider}:${upstreamKey}`;
   const entry = {
-    id: `${source.provider}:${upstreamKey}`,
+    id,
     provider: source.provider,
     upstreamKey,
     title: fields.title,
@@ -203,7 +207,8 @@ function makeEntry(source, upstreamKey, fields) {
     sourceRevision: fields.sourceRevision ?? source.revision,
     accent: fields.accent ?? neutralAccent,
   };
-  if (fields.domain) entry.domain = fields.domain;
+  const domain = fields.domain ?? catalogDomainOverrides[id];
+  if (domain) entry.domain = domain;
   return entry;
 }
 
@@ -393,6 +398,12 @@ function validateEntries(entries) {
     ids.add(entry.id);
     if (/raw\.githubusercontent\.com\/.+\/(?:main|master)\//i.test(entry.assetUrl) || /@latest\b/i.test(entry.assetUrl)) {
       throw new Error(`Mutable asset URL generated for ${entry.id}`);
+    }
+  }
+  for (const [id, domain] of Object.entries(catalogDomainOverrides)) {
+    if (!ids.has(id)) throw new Error(`Domain override references missing catalog icon: ${id}`);
+    if (typeof domain !== "string" || !/^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])$/i.test(domain) || !domain.includes(".")) {
+      throw new Error(`Invalid catalog domain override for ${id}`);
     }
   }
 }

@@ -19,6 +19,8 @@ test("icon picker unifies catalog and website search while offering a server-ind
   assert.match(picker, /fetch\(`\/api\/brands\/search\?q=/);
   assert.match(picker, /fetch\("\/api\/icons\/discover"/);
   const discovery = picker.slice(picker.indexOf("async function discoverWebsiteIcon"), picker.indexOf("async function confirmMonogram"));
+  assert.match(discovery, /readApiJsonObject\(response/);
+  assert.doesNotMatch(discovery, /response\.json\(\)/, "website discovery must tolerate non-JSON error responses");
   assert.doesNotMatch(discovery, /onWebsiteChange\(/, "discovery must stay a draft until explicit confirmation");
   assert.match(picker, /if \(candidateWebsite\) onWebsiteChange\(candidateWebsite\)/);
   assert.match(picker, /placeholder="搜索图标或输入官网/);
@@ -67,4 +69,16 @@ test("website discovery responses always produce a renderable legacy icon key", 
     () => websiteBrandChoiceFromResponse({ title: "Missing ID" }, "greencloudvps.com"),
     /没有写入服务端索引/,
   );
+
+  const catalogChoice = websiteBrandChoiceFromResponse({
+    iconId: "simple-icons:spaceship",
+    iconKey: "simple-spaceship",
+    title: "Spaceship",
+    accent: "394eff",
+    source: "simple-icons",
+    domain: "spaceship.com",
+  }, "spaceship.com");
+  assert.equal(catalogChoice.iconKey, "simple-spaceship");
+  assert.equal(catalogChoice.source, "simple-icons");
+  assert.equal(catalogChoice.sourceLabel, "Simple Icons");
 });

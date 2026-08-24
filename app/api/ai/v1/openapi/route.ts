@@ -92,7 +92,7 @@ export async function GET(request: Request) {
         get: { operationId: "searchIcons", summary: "搜索图标", parameters: [{ name: "q", in: "query", schema: { type: "string", maxLength: 64 } }, { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 24, default: 12 } }], responses: { "200": { description: "可写入订阅的 iconId 列表" }, "503": { description: "图标库暂时不可用" } } },
       },
       "/icons/discover": {
-        post: { operationId: "discoverWebsiteIcon", summary: "发现官方网站图标", description: `仅在搜索无合适结果时使用；服务端执行 SSRF 安全检查和限流。${aiWriteConfirmationRule}`, requestBody: jsonBody({ $ref: "#/components/schemas/IconDiscover" }, { website: "https://example.com" }), responses: { "200": { description: "已有图标" }, "201": { description: "发现并创建图标" }, "400": { $ref: "#/components/responses/InvalidRequest" }, "422": { description: "网站没有可用图标" } } },
+        post: { operationId: "discoverWebsiteIcon", summary: "发现官方网站图标", description: `仅在搜索无合适结果时使用；服务端执行 SSRF 安全检查和限流。${aiWriteConfirmationRule}`, requestBody: jsonBody({ $ref: "#/components/schemas/IconDiscover" }, { website: "https://example.com" }), responses: { "200": { description: "已有图标" }, "201": { description: "发现并创建图标" }, "400": { $ref: "#/components/responses/InvalidRequest" }, "422": { description: "网站没有可用图标" }, "429": { description: "请求过于频繁；Retry-After 响应头给出重试等待秒数" } } },
       },
       "/icons/monogram": {
         post: { operationId: "createMonogramIcon", summary: "创建字母图标", description: `品牌图标不可用时的明确回退方案。${aiWriteConfirmationRule}`, requestBody: jsonBody({ $ref: "#/components/schemas/MonogramCreate" }, { text: "AI", accent: "2563eb" }), responses: { "201": { description: "返回可写入订阅的 iconId" }, "400": { $ref: "#/components/responses/InvalidRequest" } } },

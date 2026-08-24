@@ -33,6 +33,7 @@ test("OpenAPI contract requires real icons and documents the complete lifecycle"
   assert.match(openapi, /required: \["name", "iconId"\]/);
   assert.match(openapi, /else: \{ required: \["dueDate"\] \}/);
   assert.match(openapi, /"\/icons\/discover"/);
+  assert.match(openapi, /"429": \{ description: "请求过于频繁；Retry-After/);
   assert.match(openapi, /"\/icons\/monogram"/);
   assert.match(openapi, /"\/categories"/);
   assert.match(openapi, /"\/preferences"/);
@@ -41,6 +42,12 @@ test("OpenAPI contract requires real icons and documents the complete lifecycle"
   assert.match(guide, /不得猜测.*iconId/);
   assert.match(guide, /永久删除不可恢复/);
   assert.match(contract, /"cardAccent"/);
+});
+
+test("AI icon discovery forwards the retry delay for rate-limited callers", async () => {
+  const route = await source("../app/api/ai/v1/icons/discover/route.ts");
+  assert.match(route, /iconDiscoveryRetryAfter\(error\)/);
+  assert.match(route, /"Retry-After": String\(retryAfterSeconds\)/);
 });
 
 test("subscription responses expose display, order, and archive state", async () => {
