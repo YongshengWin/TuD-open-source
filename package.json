@@ -50,5 +50,10 @@
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3"
   },
+  "overrides": {
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.25.12"
+    }
+  },
   "type": "module"
 }
