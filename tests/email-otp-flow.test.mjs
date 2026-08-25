@@ -103,3 +103,15 @@ test("enforces durable daily email quotas and closes email-dependent entry point
   assert.doesNotMatch(login, /今日邮件额度已用尽/);
   assert.match(compose, /EMAIL_DAILY_LIMIT: \$\{EMAIL_DAILY_LIMIT:-100\}/);
 });
+
+test("keeps subscription reminder emails free of links", async () => {
+  const mailer = await source("../lib/email.server.ts");
+  const reminderMailer = mailer.slice(mailer.indexOf("export async function sendSubscriptionReminderEmail"));
+
+  assert.doesNotMatch(reminderMailer, /<a\b/i);
+  assert.doesNotMatch(reminderMailer, /href=/);
+  assert.doesNotMatch(reminderMailer, /https?:\/\//);
+  assert.doesNotMatch(reminderMailer, /查看订阅|打开 TuD/);
+  assert.match(reminderMailer, /金额：\$\{message\.amount\}/);
+  assert.match(reminderMailer, /续费日期：\$\{message\.dueDate\}/);
+});

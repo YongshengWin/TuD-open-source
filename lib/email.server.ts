@@ -118,14 +118,11 @@ export async function sendSubscriptionReminderEmail(message: SubscriptionReminde
   }
   if (!from) throw new Error("EMAIL_FROM 未配置，无法发送订阅提醒");
 
-  const appUrl = process.env.TUD_PUBLIC_URL?.trim()
-    || process.env.BETTER_AUTH_URL?.trim()
-    || "http://localhost:3000";
   const safeName = escapeHtml(message.serviceName);
   const safeAmount = escapeHtml(message.amount);
   const safeDate = escapeHtml(message.dueDate);
   const safeCycle = escapeHtml(message.billingCycle);
-  const text = `${message.serviceName} 将于明天续费\n\n金额：${message.amount}\n续费日期：${message.dueDate}\n周期：${message.billingCycle}\n\n打开 TuD：${appUrl}`;
+  const text = `${message.serviceName} 将于明天续费\n\n金额：${message.amount}\n续费日期：${message.dueDate}\n周期：${message.billingCycle}`;
   const html = `<!doctype html>
 <html lang="zh-CN"><body style="margin:0;padding:0;background:#f5f7fb;color:#182235;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
   <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background:#f5f7fb">
@@ -154,10 +151,7 @@ export async function sendSubscriptionReminderEmail(message: SubscriptionReminde
               </table>
             </td></tr>
           </table>
-          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:28px"><tr><td align="center">
-            <a href="${escapeHtml(appUrl)}" style="display:inline-block;padding:13px 46px;border-radius:8px;background:#17243a;color:#fff;font-size:13px;font-weight:700;text-decoration:none">查看订阅</a>
-          </td></tr></table>
-          <p style="margin:22px 0 0;color:#8b95a4;font-size:12px;line-height:1.65;text-align:center">这是你在 TuD 中开启的到期前 1 天提醒。若已完成续费，可在订阅详情中标记已续费。</p>
+          <p style="margin:28px 0 0;color:#8b95a4;font-size:12px;line-height:1.65;text-align:center">这是你在 TuD 中开启的到期前 1 天提醒。若已完成续费，可在订阅详情中标记已续费。</p>
         </td></tr>
       </table>
     </td></tr>
