@@ -35,8 +35,8 @@ The catalog metadata does not imply endorsement by, affiliation with, or sponsor
 ## Simple Icons
 
 - Project: [Simple Icons](https://simpleicons.org/)
-- Package version: `simple-icons@16.27.0`
-- License: [CC0 1.0 Universal](https://github.com/simple-icons/simple-icons/blob/16.27.0/LICENSE.md)
+- Package version: `simple-icons@16.27.1`
+- License: [CC0 1.0 Universal](https://github.com/simple-icons/simple-icons/blob/16.27.1/LICENSE.md)
 - Trademark note: CC0 does not waive or grant trademark rights in the represented brands.
 
 ## Project-Curated Local Assets
