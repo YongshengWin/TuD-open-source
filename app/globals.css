@@ -806,7 +806,7 @@ nextjs-portal { display: none !important; }
   .ticket-builder { display: flex; flex-direction: column; }
   .ticket-selector { max-height: 230px; flex: 0 0 auto; border-right: 0; border-bottom: 1px solid var(--line); }
   .ticket-selector > header { min-height: 58px; padding: 10px 13px; }
-  .ticket-selector-list { padding: 7px 10px 10px; display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; }
+  .ticket-selector-list { padding: 7px 10px 10px; display: flex; gap: 8px; overflow: auto; overscroll-behavior: contain; }
   .ticket-selector-list section { min-width: 210px; }
   .ticket-selector-list section + section { margin-top: 0; }
   .ticket-preview-scroll { min-height: 0; flex: 1 1 auto; padding: 16px 10px 28px; }
