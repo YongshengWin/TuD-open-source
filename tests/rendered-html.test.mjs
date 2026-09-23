@@ -151,6 +151,19 @@ test("generated brand catalogs are broad, unique, and wired to the server index"
   ]);
 
   assert.equal(typeof simpleCatalog.version, "string");
+  const sourceLock = JSON.parse(await readSource("../lib/icon-source-lock.json"));
+  const packageLock = JSON.parse(await readSource("../package-lock.json"));
+  const simpleSource = sourceLock.sources["simple-icons"];
+  assert.equal(simpleCatalog.version, packageLock.packages["node_modules/simple-icons"].version);
+  assert.equal(simpleSource.revision, simpleCatalog.version);
+  assert.equal(simpleSource.integrity, packageLock.packages["node_modules/simple-icons"].integrity);
+  const simpleEntries = iconCatalog.entries.filter((entry) => entry.provider === "simple-icons");
+  assert.equal(simpleEntries.length, simpleCatalog.icons.length);
+  for (const entry of simpleEntries) {
+    assert.equal(entry.sourceRevision, simpleCatalog.version, entry.id);
+    assert.equal(entry.assetUrl, `/brands/simple/${simpleCatalog.version}/${entry.upstreamKey}.svg`);
+    await access(new URL(`../public${entry.assetUrl}`, import.meta.url));
+  }
   assert.ok(Array.isArray(simpleCatalog.icons));
   assert.ok(simpleCatalog.icons.length >= 3_000, `expected a broad Simple Icons catalog, got ${simpleCatalog.icons.length}`);
 
