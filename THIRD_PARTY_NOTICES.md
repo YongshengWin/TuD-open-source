@@ -41,4 +41,6 @@ The catalog metadata does not imply endorsement by, affiliation with, or sponsor
 
 ## Project-Curated Local Assets
 
+Tello's official-domain mapping fetches its [website-declared Apple touch icon](https://tello.com/images/favicons/apple-touch-icon.png) from [Tello](https://tello.com/) at runtime. This website-provided artwork is used for service identification; no open-source license or trademark rights are asserted, and no copy is bundled in the repository.
+
 Files directly under `public/brands/` are project-curated identification assets. Their per-file provenance is not asserted by the generated catalog (`license: NOASSERTION`). Underlying names, logos, and trademarks remain the property of their respective owners.

@@ -134,6 +134,11 @@ type OfficialDomainIconDefinition = {
 
 const OFFICIAL_DOMAIN_ICON_DEFINITIONS: readonly OfficialDomainIconDefinition[] = [
   {
+    domain: "tello.com",
+    displayName: "Tello",
+    assetUrl: "https://tello.com/images/favicons/apple-touch-icon.png",
+  },
+  {
     domain: "dmit.io",
     displayName: "DMIT",
     assetUrl: "https://www.dmit.io/templates/dmit_theme_2020/dmit/assets/images/dmit_logo_with_text.svg",
