@@ -21,6 +21,11 @@ export async function GET(request: Request) {
     website: { type: ["string", "null"], format: "uri", maxLength: 500 },
     notes: { type: "string", maxLength: 1000 },
     reminderEnabled: { type: "boolean", description: "仅当 GET /preferences 返回 reminderEligible=true 时可开启；永久订阅不可开启" },
+    memberSchedules: { type: "array", maxItems: 20, items: { $ref: "#/components/schemas/MemberScheduleWrite" }, description: "每位成员的独立收款计划及邮件提醒开关；PATCH 需同时传 expectedUpdatedAt，传空数组清除，省略则保留。已有成员须传回 id 和最新 lastCollectedAt，不会创建登录子账号" },
+  };
+  const patchProperties = {
+    ...writableProperties,
+    expectedUpdatedAt: { type: "string", format: "date-time", description: "修改 memberSchedules 时必填；先 GET 订阅，原样回传其最新 updatedAt，防止覆盖或删除更新后的成员计划" },
   };
   const subscriptionResponse = {
     description: "订阅",
@@ -64,7 +69,7 @@ export async function GET(request: Request) {
         patch: {
           operationId: "updateSubscription", summary: "更新有效订阅", description: `只发送要修改的字段。${aiWriteConfirmationRule}`,
           requestBody: jsonBody({ $ref: "#/components/schemas/SubscriptionPatch" }, { amount: 25, currencyCode: "USD", notes: "已升级套餐" }),
-          responses: { "200": subscriptionResponse, "400": { $ref: "#/components/responses/InvalidRequest" }, "404": { $ref: "#/components/responses/NotFound" } },
+          responses: { "200": subscriptionResponse, "400": { $ref: "#/components/responses/InvalidRequest" }, "404": { $ref: "#/components/responses/NotFound" }, "409": { $ref: "#/components/responses/Conflict" } },
         },
         delete: {
           operationId: "deleteSubscription", summary: "归档或永久删除订阅",
@@ -128,8 +133,42 @@ export async function GET(request: Request) {
           type: "object", required: ["name", "iconId"], properties: writableProperties, additionalProperties: false,
           allOf: [{ if: { properties: { billingCycle: { const: "lifetime" } }, required: ["billingCycle"] }, then: {}, else: { required: ["dueDate"] } }],
         },
-        SubscriptionPatch: { type: "object", minProperties: 1, properties: writableProperties, additionalProperties: false },
-        Subscription: { type: "object", required: ["id", "name", "iconId", "groupName", "currencyCode", "billingCycle", "sortPosition", "isArchived"], properties: { id: { type: "string" }, ...writableProperties, accent: { type: "string" }, sortPosition: { type: "integer" }, isArchived: { type: "boolean" }, createdAt: { type: "string", format: "date-time" }, updatedAt: { type: "string", format: "date-time" } } },
+        SubscriptionPatch: { type: "object", minProperties: 1, properties: patchProperties, additionalProperties: false, allOf: [{ if: { required: ["memberSchedules"] }, then: { required: ["expectedUpdatedAt"] } }] },
+        Subscription: { type: "object", required: ["id", "name", "iconId", "groupName", "currencyCode", "billingCycle", "memberSchedules", "sortPosition", "isArchived"], properties: { id: { type: "string" }, ...writableProperties, memberSchedules: { type: "array", items: { $ref: "#/components/schemas/MemberSchedule" } }, accent: { type: "string" }, sortPosition: { type: "integer" }, isArchived: { type: "boolean" }, createdAt: { type: "string", format: "date-time" }, updatedAt: { type: "string", format: "date-time" } } },
+        MemberScheduleWrite: {
+          type: "object", required: ["name", "amountMinor", "currencyCode", "nextDueDate", "intervalCount", "intervalUnit"], additionalProperties: false,
+          allOf: [{ if: { required: ["id"] }, then: { required: ["lastCollectedAt"] } }],
+          description: "新增成员省略 id 和 lastCollectedAt；PATCH 保留已有成员时传回其 id 及最新 lastCollectedAt（首次收款前为 null）。未传回的成员将从计划中移除。anchorDay 由服务端维护，写入时省略。",
+          properties: {
+            id: { type: "string", format: "uuid", description: "已有成员的稳定 ID；新增时省略" },
+            name: { type: "string", minLength: 1, maxLength: 80, description: "成员名称，不区分大小写且不能重名" },
+            joinedDate: { type: ["string", "null"], format: "date", description: "加入日期，YYYY-MM-DD；可省略或为 null" },
+            amountMinor: { type: "integer", minimum: 0, maximum: 2147483647, description: "此成员每次应付金额，使用 currencyCode 的最小单位" },
+            currencyCode: { type: "string", enum: aiCurrencies, description: "此成员的付款币种，可以不同于订阅币种" },
+            nextDueDate: { type: "string", format: "date", description: "下次应收日期，YYYY-MM-DD" },
+            intervalCount: { type: "integer", minimum: 1, maximum: 3650, description: "重复间隔；day 最多 3650、week 520、month 120、year 10" },
+            intervalUnit: { type: "string", enum: ["day", "week", "month", "year"] },
+            reminderEnabled: { type: "boolean", default: false, description: "仅当 reminderEligible=true 时可开启；收款前 1 天提醒管理者账号邮箱，同一订阅同日收款合并发送" },
+            anchorDay: { type: "integer", minimum: 1, maximum: 31, readOnly: true, description: "写入时省略；若传入必须与服务端按 nextDueDate 推导或保留的值一致" },
+            lastCollectedAt: { type: ["string", "null"], format: "date-time", description: "已有成员必填；原样回传 GET 的最新值，不能手动修改" },
+          },
+        },
+        MemberSchedule: {
+          type: "object", required: ["id", "name", "joinedDate", "amountMinor", "currencyCode", "nextDueDate", "intervalCount", "intervalUnit", "reminderEnabled", "anchorDay", "lastCollectedAt"], additionalProperties: false,
+          properties: {
+            id: { type: "string", format: "uuid" },
+            name: { type: "string" },
+            joinedDate: { type: ["string", "null"], format: "date" },
+            amountMinor: { type: "integer" },
+            currencyCode: { type: "string", enum: aiCurrencies },
+            nextDueDate: { type: "string", format: "date" },
+            intervalCount: { type: "integer" },
+            intervalUnit: { type: "string", enum: ["day", "week", "month", "year"] },
+            reminderEnabled: { type: "boolean", description: "收款前 1 天提醒管理者账号邮箱" },
+            anchorDay: { type: "integer", minimum: 1, maximum: 31, readOnly: true, description: "每月或每年续期使用的原始日期；服务端根据手动设置的下次收款日维护，避免月末日期逐期漂移" },
+            lastCollectedAt: { type: ["string", "null"], format: "date-time", readOnly: true },
+          },
+        },
         OrderRequest: { type: "object", required: ["ids"], properties: { ids: { type: "array", items: { type: "string" }, uniqueItems: true } }, additionalProperties: false },
         CategoryCreate: { type: "object", required: ["name"], properties: { name: { type: "string", maxLength: 30 } }, additionalProperties: false },
         CategoryOrder: { type: "object", required: ["names"], properties: { names: { type: "array", items: { type: "string", maxLength: 30 }, uniqueItems: true } }, additionalProperties: false },
@@ -142,6 +181,7 @@ export async function GET(request: Request) {
       responses: {
         Unauthorized: errorResponse("AI Key 缺失、无效或已撤销"),
         InvalidRequest: errorResponse("字段、金额、周期、日期或操作不正确"),
+        Conflict: errorResponse("订阅或成员收款状态已变化；重新读取最新订阅后再提交"),
         NotFound: errorResponse("资源不存在或不属于当前用户"),
       },
     },

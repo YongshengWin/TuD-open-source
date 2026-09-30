@@ -26,7 +26,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json(await updateSubscription(currentSession.user.id, id, await request.json(), allowReminder));
   } catch (error) {
     const message = error instanceof Error ? error.message : "更新失败";
-    return NextResponse.json({ error: message }, { status: message === "订阅不存在" ? 404 : 400 });
+    const status = message === "订阅不存在" ? 404
+      : message === "订阅已变化，请刷新后重试" || message === "成员收款状态已变化，请刷新后重试" ? 409 : 400;
+    return NextResponse.json({ error: message }, { status });
   }
 }
 

@@ -4,6 +4,7 @@ import {
   addBillingCycle,
   billingCycleMonths,
   currencyFractionDigits,
+  currencyOptions,
   isAutoRenewableCycle,
   isBillingCycle,
   isSupportedCurrency,
@@ -44,4 +45,20 @@ test("uses each currency's actual minor unit", () => {
   assert.equal(majorToMinor(1200, "JPY"), 1200);
   assert.equal(majorToMinor(12.345, "KWD"), 12345);
   assert.equal(minorToMajor(12345, "KWD"), 12.345);
+});
+
+test("offers requested and other common currencies for subscriptions and summaries", () => {
+  const options = new Map(currencyOptions.map(({ value, label }) => [value, label]));
+  assert.equal(options.size, currencyOptions.length);
+  for (const [code, label] of [
+    ["TRY", "土耳其里拉"], ["BOB", "玻利维亚诺"],
+    ["PHP", "菲律宾比索"], ["NZD", "新西兰元"],
+    ["ARS", "阿根廷比索"], ["CLP", "智利比索"],
+    ["ZAR", "南非兰特"], ["QAR", "卡塔尔里亚尔"],
+  ]) {
+    assert.equal(options.get(code), label);
+    assert.equal(isSupportedCurrency(code), true);
+  }
+  assert.equal(majorToMinor(31.8, "TRY"), 3180);
+  assert.equal(minorToMajor(3180, "BOB"), 31.8);
 });

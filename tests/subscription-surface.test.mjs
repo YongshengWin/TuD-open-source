@@ -65,8 +65,8 @@ test("account menu exposes user-scoped bulk reminder management", async () => {
     source("../db/subscriptions.ts"),
   ]);
 
-  assert.match(dashboard, /<BellRing size=\{16\} \/>到期提醒/);
-  assert.match(dashboard, /批量管理到期提醒/);
+  assert.match(dashboard, /<BellRing size=\{16\} \/>续费提醒/);
+  assert.match(dashboard, /批量管理续费提醒/);
   assert.match(dashboard, /fetch\("\/api\/subscriptions\/reminders"/);
   assert.match(dashboard, /changed\.map\(\(item\) => \(\{ id: item\.id, enabled: enabledIds\.has\(item\.id\) \}\)\)/);
   assert.match(route, /canUseSubscriptionReminders\(currentSession\.user\.email\)/);

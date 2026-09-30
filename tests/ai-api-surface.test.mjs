@@ -42,6 +42,8 @@ test("OpenAPI contract requires real icons and documents the complete lifecycle"
   assert.match(guide, /不得猜测.*iconId/);
   assert.match(guide, /永久删除不可恢复/);
   assert.match(contract, /"cardAccent"/);
+  assert.match(contract, /"memberSchedules"/);
+  assert.match(contract, /"expectedUpdatedAt"/);
 });
 
 test("AI icon discovery forwards the retry delay for rate-limited callers", async () => {
@@ -52,9 +54,40 @@ test("AI icon discovery forwards the retry delay for rate-limited callers", asyn
 
 test("subscription responses expose display, order, and archive state", async () => {
   const api = await source("../lib/ai-api.server.ts");
-  for (const field of ["iconId", "cardAccent", "accent", "sortPosition", "isArchived"]) {
+  for (const field of ["iconId", "cardAccent", "memberSchedules", "accent", "sortPosition", "isArchived"]) {
     assert.match(api, new RegExp(`${field}: item\\.${field}`));
   }
+});
+
+test("AI API documents independent member collection schedules", async () => {
+  const [openapi, capabilities, guide, api, updateRoute] = await Promise.all([
+    source("../app/api/ai/v1/openapi/route.ts"),
+    source("../app/api/ai/v1/route.ts"),
+    source("../app/settings/ai/ai-settings-panel.tsx"),
+    source("../lib/ai-api.server.ts"),
+    source("../app/api/ai/v1/subscriptions/[id]/route.ts"),
+  ]);
+  assert.match(openapi, /memberSchedules: \{ type: "array", maxItems: 20/);
+  assert.match(openapi, /MemberScheduleWrite: \{/);
+  assert.match(openapi, /MemberSchedule: \{/);
+  assert.match(openapi, /amountMinor: \{ type: "integer", minimum: 0, maximum: 2147483647/);
+  assert.match(openapi, /intervalUnit: \{ type: "string", enum: \["day", "week", "month", "year"\] \}/);
+  assert.match(openapi, /reminderEnabled: \{ type: "boolean", default: false, description: "仅当 reminderEligible=true 时可开启/);
+  assert.match(openapi, /anchorDay: \{ type: "integer", minimum: 1, maximum: 31, readOnly: true/);
+  assert.match(openapi, /lastCollectedAt: \{ type: \["string", "null"\], format: "date-time", readOnly: true \}/);
+  assert.match(openapi, /allOf: \[\{ if: \{ required: \["id"\] \}, then: \{ required: \["lastCollectedAt"\] \} \}\]/);
+  assert.match(openapi, /SubscriptionPatch: \{.*properties: patchProperties.*required: \["expectedUpdatedAt"\]/);
+  assert.match(openapi, /"409": \{ \$ref: "#\/components\/responses\/Conflict" \}/);
+  assert.match(openapi, /传空数组清除，省略则保留/);
+  assert.match(capabilities, /memberSchedules: \{\s+type: "array"/);
+  assert.match(capabilities, /expectedUpdatedAt: \{ type: "ISO 8601 date-time"/);
+  assert.match(guide, /memberSchedules 为每位成员分别记录应收金额/);
+  assert.match(guide, /同一订阅同日应收合并发送/);
+  assert.match(guide, /已有成员时，必须回传其 id 和最新 lastCollectedAt/);
+  assert.match(api, /mode === "create" && input\.expectedUpdatedAt !== undefined/);
+  assert.match(api, /error\.message === "订阅已变化，请刷新后重试"/);
+  assert.match(api, /error\.message === "成员收款状态已变化，请刷新后重试"/);
+  assert.match(updateRoute, /status: conflict \? 409 : 400/);
 });
 
 test("subscription ticket defaults to a native PNG and keeps JSON as an explicit option", async () => {

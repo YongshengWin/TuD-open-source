@@ -15,6 +15,7 @@ type DateFieldProps = {
   name: string;
   defaultValue: string;
   required?: boolean;
+  onChange?: (value: string) => void;
 };
 
 function displayDate(value: string) {
@@ -39,7 +40,7 @@ function dayLabel(value: string) {
   }).format(new Date(`${value}T12:00:00Z`));
 }
 
-export function DateField({ label, name, defaultValue, required = false }: DateFieldProps) {
+export function DateField({ label, name, defaultValue, required = false, onChange }: DateFieldProps) {
   const [value, setValue] = useState(defaultValue);
   const [visibleMonth, setVisibleMonth] = useState(() => safeMonth(defaultValue));
   const [open, setOpen] = useState(false);
@@ -99,6 +100,7 @@ export function DateField({ label, name, defaultValue, required = false }: DateF
 
   function chooseDate(date: string) {
     setValue(date);
+    onChange?.(date);
     setVisibleMonth(safeMonth(date));
     setOpen(false);
   }

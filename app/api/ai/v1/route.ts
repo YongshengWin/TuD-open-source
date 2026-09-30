@@ -34,11 +34,13 @@ export async function GET(request: Request) {
     ],
     writeFields: {
       requiredForCreate: ["name", "iconId", "dueDate unless billingCycle is lifetime"],
-      optional: aiSubscriptionWritableFields.filter((field) => !["name", "iconId", "dueDate"].includes(field)),
+      optional: aiSubscriptionWritableFields.filter((field) => !["name", "iconId", "dueDate", "expectedUpdatedAt"].includes(field)),
+      patchOnly: ["expectedUpdatedAt"],
       notes: [
         "amount 使用币种主单位，例如 12.99；amountMinor 使用最小单位，二者不要同时提供。",
         "billingCycle 可用 monthly、quarterly、semiannual、yearly、biennial、triennial、custom、lifetime。",
         "lifetime 无需 dueDate；其他周期的 dueDate 使用 YYYY-MM-DD。",
+        "memberSchedules 为每位成员分别记录应收金额、币种、下次收款日和重复周期；reminderEnabled=true 在有提醒资格时于收款前 1 天提醒管理者，同一订阅同日收款合并发送。PATCH 时必须回传订阅最新 updatedAt 作为 expectedUpdatedAt，已有成员还需回传最新 lastCollectedAt（可为 null）。传空数组清除，省略则保留。不创建登录子账号。",
         "创建前先通过 /icons 搜索 iconId；无结果时使用 /icons/discover 或 /icons/monogram。",
         aiWriteConfirmationRule,
       ],
@@ -56,6 +58,13 @@ export async function GET(request: Request) {
       website: { type: "http(s) URL|null", maxLength: 500 },
       notes: { type: "string", maxLength: 1000 },
       reminderEnabled: { type: "boolean", description: "仅对有提醒资格的账户生效" },
+      memberSchedules: {
+        type: "array", maxItems: 20,
+        itemFields: ["id（已有成员保留时必传，新成员省略）", "name", "joinedDate（可选）", "amountMinor", "currencyCode", "nextDueDate", "intervalCount", "intervalUnit", "reminderEnabled（可选）", "lastCollectedAt（已有成员必传最新值）"],
+        intervalUnits: ["day", "week", "month", "year"],
+        description: "每位成员可有不同的金额、币种和收款周期；提醒开关独立于母订阅续费提醒，符合条件时发送到管理者邮箱，同一订阅同日收款合并发送。anchorDay 由系统维护。lastCollectedAt 不能修改，但已有成员更新时必须原样回传。PATCH 传空数组清除，省略则保留。",
+      },
+      expectedUpdatedAt: { type: "ISO 8601 date-time", patchOnly: true, description: "修改 memberSchedules 时必填；原样回传订阅最新 updatedAt，若状态已变化则返回 409" },
       cardAccent: { type: "hex color|null", example: "2563eb", description: "卡片自定义颜色；null 表示跟随图标" },
     },
     examples: {
@@ -69,6 +78,13 @@ export async function GET(request: Request) {
         method: "PATCH",
         path: "/subscriptions/{id}",
         body: { amount: 25, currencyCode: "USD", dueDate: "2026-10-12", notes: "已升级套餐" },
+      },
+      updateMemberSchedules: {
+        method: "PATCH",
+        path: "/subscriptions/{id}",
+        prerequisite: "先 GET /subscriptions/{id}，取得最新 updatedAt；保留已有成员时还需取得其 id 和 lastCollectedAt",
+        body: { expectedUpdatedAt: "2026-09-30T08:00:00.000Z", memberSchedules: [{ name: "家庭成员", joinedDate: "2026-10-01", amountMinor: 1200, currencyCode: "CNY", nextDueDate: "2026-10-15", intervalCount: 1, intervalUnit: "month", reminderEnabled: true }] },
+        note: "示例时间仅示意，必须使用 GET 返回的真实 updatedAt。PATCH 替换整份成员计划；已有成员要传回原 id 和最新 lastCollectedAt 才能保留。",
       },
       renewSubscription: { method: "POST", path: "/subscriptions/{id}/renew", body: null },
       createTicket: { method: "POST", path: "/ticket", body: { selectedIds: ["subscription-id-1", "subscription-id-2"], summaryCurrency: "CNY" } },

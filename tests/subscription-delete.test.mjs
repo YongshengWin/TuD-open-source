@@ -14,7 +14,7 @@ test("deletes a user-owned subscription only after explicit confirmation", async
     source("../app/globals.css"),
   ]);
 
-  assert.match(dashboard, /删除后无法恢复，相关的提醒记录也会一并移除/);
+  assert.match(dashboard, /删除后无法恢复，相关的提醒和成员收款记录也会一并删除/);
   assert.match(dashboard, /fetch\(`\/api\/subscriptions\/\$\{encodeURIComponent\(item\.id\)\}`/);
   assert.match(dashboard, /method:\s*"DELETE"/);
   assert.match(dashboard, /JSON\.stringify\(\{ confirm: item\.id \}\)/);

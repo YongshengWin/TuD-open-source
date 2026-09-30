@@ -17,6 +17,8 @@ export const aiSubscriptionWritableFields = [
   "website",
   "notes",
   "reminderEnabled",
+  "memberSchedules",
+  "expectedUpdatedAt",
 ] as const;
 
 const writableFieldSet = new Set<string>(aiSubscriptionWritableFields);

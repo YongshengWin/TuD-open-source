@@ -1,6 +1,7 @@
 import "server-only";
 import nodemailer, { type Transporter } from "nodemailer";
 import { releaseAuthEmail, reserveAuthEmail } from "./email-quota.server";
+import { composeGroupedReminderEmail, type GroupedReminderContent } from "./grouped-reminder-email";
 
 export type AuthOtpPurpose = "sign-in" | "email-verification" | "forget-password" | "change-email";
 
@@ -166,6 +167,29 @@ export async function sendSubscriptionReminderEmail(message: SubscriptionReminde
       await releaseAuthEmail(reservation);
     } catch (releaseError) {
       console.error("Failed to release a subscription reminder quota reservation", releaseError);
+    }
+    throw error;
+  }
+}
+
+export async function sendGroupedReminderEmail(message: GroupedReminderContent & { email: string }) {
+  const from = process.env.EMAIL_FROM?.trim() || process.env.SMTP_FROM?.trim();
+  const { subject, text, html } = composeGroupedReminderEmail(message);
+
+  if (!process.env.SMTP_HOST && process.env.NODE_ENV !== "production") {
+    console.info(`[TuD development mail] ${subject} → ${maskedEmail(message.email)}`);
+    return;
+  }
+  if (!from) throw new Error("EMAIL_FROM 未配置，无法发送到期提醒");
+
+  const reservation = await reserveAuthEmail(message.email);
+  try {
+    await configuredTransporter().sendMail({ from, to: message.email, subject, text, html });
+  } catch (error) {
+    try {
+      await releaseAuthEmail(reservation);
+    } catch (releaseError) {
+      console.error("Failed to release a grouped reminder quota reservation", releaseError);
     }
     throw error;
   }

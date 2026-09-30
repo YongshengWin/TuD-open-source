@@ -36,8 +36,9 @@ export async function readAiJson(request: Request) {
   }
 }
 
-export function subscriptionInputFromAi(input: Record<string, unknown>, fallbackCurrency = "CNY"): SubscriptionWriteInput {
+export function subscriptionInputFromAi(input: Record<string, unknown>, fallbackCurrency = "CNY", mode: "create" | "update" = "create"): SubscriptionWriteInput {
   assertAiSubscriptionFields(input);
+  if (mode === "create" && input.expectedUpdatedAt !== undefined) throw new Error("expectedUpdatedAt 仅用于更新订阅");
   if (input.amount !== undefined && input.amountMinor !== undefined) throw new Error("amount 与 amountMinor 只能提供一个");
   if (input.amount !== undefined) {
     const amount = Number(input.amount);
@@ -46,6 +47,13 @@ export function subscriptionInputFromAi(input: Record<string, unknown>, fallback
     return { ...input, amountMinor: majorToMinor(amount, currency) };
   }
   return input;
+}
+
+export function isAiSubscriptionConflict(error: unknown) {
+  return error instanceof Error && (
+    error.message === "订阅已变化，请刷新后重试"
+    || error.message === "成员收款状态已变化，请刷新后重试"
+  );
 }
 
 export function publicSubscription(item: SubscriptionRecord) {
@@ -61,6 +69,7 @@ export function publicSubscription(item: SubscriptionRecord) {
     website: item.website,
     notes: item.notes,
     reminderEnabled: item.reminderEnabled,
+    memberSchedules: item.memberSchedules,
     iconId: item.iconId,
     cardAccent: item.cardAccent,
     accent: item.accent,

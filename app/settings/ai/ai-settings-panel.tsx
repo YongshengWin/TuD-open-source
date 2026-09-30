@@ -37,13 +37,15 @@ function aiPrompt(origin: string, token: string) {
 - 用户要求订阅票时，调用 /ticket 并把返回的 PNG 作为图片直接交付，不要只用文字复述票据内容。
 
 写入字段
-- name、iconId、groupName、amount、currencyCode、billingCycle、dueDate、cardAccent、accountName、website、notes、reminderEnabled。
+- name、iconId、groupName、amount、currencyCode、billingCycle、dueDate、cardAccent、accountName、website、notes、reminderEnabled、memberSchedules。
+- expectedUpdatedAt 仅用于更新成员收款计划，不能在创建订阅时发送。
 - 创建订阅前必须先搜索或创建图标并取得 iconId；不要编造 iconId。
 - amount 使用主单位，例如 12.99 美元写 12.99；不要与 amountMinor 同时发送。
 - billingCycle 只能是 monthly、quarterly、semiannual、yearly、biennial、triennial、custom、lifetime。
 - 除 lifetime 外，dueDate 使用 YYYY-MM-DD。
 - cardAccent 使用 6 位十六进制颜色；null 表示跟随图标。
 - reminderEnabled 仅在 GET /preferences 返回 reminderEligible=true 时可开启。
+- memberSchedules 为每位成员分别记录应收金额、币种、下次收款日和重复周期，不创建登录子账号。每位成员可单独设 reminderEnabled=true，在有提醒资格时于收款前 1 天通知管理者邮箱；同一订阅同日应收合并发送。PATCH 时必须把最新订阅 updatedAt 原样作为 expectedUpdatedAt 回传；保留已有成员时，必须回传其 id 和最新 lastCollectedAt（首次收款前为 null）。anchorDay 由服务端维护。传空数组清除，省略则保留；状态变化返回 409，需重新读取后再提交。
 
 操作规则
 - 读取、分析和生成订阅票可以直接执行。
@@ -142,7 +144,7 @@ export function AiSettingsPanel({ name, initialKeys, origin }: { name: string; i
         <div className="ai-section-heading"><span>CAPABILITIES</span><h2>AI 可以做什么</h2><p>下面是当前真实开放的能力，不需要让 AI 猜。</p></div>
         <div className="ai-capability-grid">
           <article><span><ListFilter size={20} /></span><div><strong>查询与整理</strong><p>读取全部订阅或单项详情，按名称、分类、账号、币种和到期日筛选，找出即将续费或缺少金额的信息。</p></div></article>
-          <article><span><FileJson2 size={20} /></span><div><strong>创建与更新</strong><p>设置服务名、分类、金额、币种、周期、续费日、账号、官网、备注和提醒；更新前会先向你确认。</p></div></article>
+          <article><span><FileJson2 size={20} /></span><div><strong>创建与更新</strong><p>设置服务名、分类、金额、币种、周期、续费日、成员收款计划、账号、官网、备注和提醒；更新前会先向你确认。</p></div></article>
           <article><span><CalendarSync size={20} /></span><div><strong>完成续费</strong><p>读取订阅 ID 后，将续费日期准确推进一个账单周期，支持月、季度、半年、一年至三年周期。</p></div></article>
           <article><span><ReceiptText size={20} /></span><div><strong>生成订阅票</strong><p>选择全部或指定订阅，按目标币种汇总月均支出，直接生成带品牌图标、分类和续费信息的 PNG 长图。</p></div></article>
           <article><span><ImageIcon size={20} /></span><div><strong>选择正确图标</strong><p>搜索内置品牌图标、从官方网站发现图标，或创建最多 5 个字符的字母图标，再把真实 iconId 写入订阅。</p></div></article>
@@ -203,6 +205,7 @@ export function AiSettingsPanel({ name, initialKeys, origin }: { name: string; i
           <div><dt>分类</dt><dd><code>groupName</code> 不存在时自动创建；<code>/categories</code> 可管理空分类、顺序和迁移。</dd></div>
           <div><dt>提醒</dt><dd>先读取 <code>/preferences</code>；只有 <code>reminderEligible=true</code> 才能开启。</dd></div>
           <div><dt>颜色</dt><dd><code>cardAccent</code> 使用 6 位十六进制颜色，传 null 恢复跟随图标。</dd></div>
+          <div><dt>成员收款</dt><dd><code>memberSchedules</code> 为同一订阅的每位成员设置独立金额、币种、下次收款日和重复周期；每人可单独开启 <code>reminderEnabled</code>，同日应收合并提醒管理者。更新时把最新 <code>updatedAt</code> 作为 <code>expectedUpdatedAt</code> 回传；已有成员还需回传当前 <code>lastCollectedAt</code>。传空数组清除，省略则保留。</dd></div>
           <div><dt>订阅票</dt><dd><code>selectedIds</code> 可选；<code>summaryCurrency</code> 指定汇总币种；默认返回 PNG 图片，只有需要分析明细时才传 <code>{`format: "json"`}</code>。</dd></div>
         </dl>
         <div className="ai-request-examples">
