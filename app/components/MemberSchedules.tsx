@@ -6,6 +6,7 @@ import type { SubscriptionRecord } from "../../db/subscriptions";
 import { memberIntervalLabel, type MemberSchedule, type MemberIntervalUnit } from "../../lib/member-schedules";
 import { currencyFractionDigits, currencyOptions, majorToMinor, minorToMajor, type SupportedCurrency } from "../../lib/subscription-options";
 import { formatCurrencyAmount, formatSubscriptionDate } from "../../lib/subscription-display";
+import { DateField } from "./DateField";
 
 export type MemberScheduleDraft = Omit<MemberSchedule, "amountMinor" | "anchorDay"> & { amount: string };
 
@@ -90,10 +91,10 @@ export function MemberSchedulesFields({ value, onChange, currencyCode, dueDate, 
           <div className="member-schedule-editor-top"><strong>成员 {index + 1}</strong><button type="button" aria-label={`移除成员 ${member.name || index + 1}`} onClick={() => onChange(value.filter((_, position) => position !== index))}><Trash2 size={15} /></button></div>
           <div className="member-schedule-form-grid">
             <label><span>称呼</span><input required maxLength={80} value={member.name} placeholder="例如：家人 A" onChange={(event) => updateMember(index, { name: event.target.value })} /></label>
-            <label><span>加入日期 <em>选填</em></span><input type="date" value={member.joinedDate ?? ""} onChange={(event) => updateMember(index, { joinedDate: event.target.value || null })} /></label>
+            <DateField label="加入日期" optional value={member.joinedDate ?? ""} onChange={(date) => updateMember(index, { joinedDate: date || null })} />
             <label><span>每次收款</span><input required type="number" min="0" step={10 ** -currencyFractionDigits(member.currencyCode)} value={member.amount} placeholder="0.00" onChange={(event) => updateMember(index, { amount: event.target.value })} /></label>
             <label><span>币种</span><select value={member.currencyCode} onChange={(event) => updateMember(index, { currencyCode: event.target.value as SupportedCurrency })}>{currencyOptions.map((option) => <option key={option.value} value={option.value}>{option.value} · {option.label}</option>)}</select></label>
-            <label><span>下次收款日期</span><input type="date" required value={member.nextDueDate} onChange={(event) => updateMember(index, { nextDueDate: event.target.value })} /></label>
+            <DateField label="下次收款日期" required value={member.nextDueDate} onChange={(date) => updateMember(index, { nextDueDate: date })} />
             <div className="member-schedule-interval"><span>收款周期</span><div><input aria-label={`${member.name || `成员 ${index + 1}`} 的周期数`} type="number" required min="1" max={{ day: 3650, week: 520, month: 120, year: 10 }[member.intervalUnit]} value={member.intervalCount} onChange={(event) => updateMember(index, { intervalCount: Number(event.target.value) })} /><select aria-label={`${member.name || `成员 ${index + 1}`} 的周期单位`} value={member.intervalUnit} onChange={(event) => updateMember(index, { intervalUnit: event.target.value as MemberIntervalUnit })}><option value="day">天</option><option value="week">周</option><option value="month">月</option><option value="year">年</option></select></div></div>
           </div>
           {reminderEligible && <label className="member-reminder-toggle"><input type="checkbox" checked={member.reminderEnabled} onChange={(event) => updateMember(index, { reminderEnabled: event.target.checked })} /><BellRing size={14} aria-hidden="true" /><span>收款前 1 天邮件提醒我</span></label>}

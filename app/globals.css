@@ -405,8 +405,10 @@ nextjs-portal { display: none !important; }
 .date-days button.selected:hover { background: #1f5fdc; color: white; }
 .date-popover-foot { margin-top: 10px; padding-top: 10px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #edf0f4; }
 .date-popover-foot span { color: #8a95a6; font-size: 10px; font-variant-numeric: tabular-nums; }
+.date-popover-foot-actions { display: flex; align-items: center; gap: 6px; }
 .date-popover-foot button { min-height: 30px; padding: 0 9px; border: 0; border-radius: 8px; background: #edf4ff; color: #2b62bb; font-size: 10px; font-weight: 650; cursor: pointer; }
 .date-popover-foot button:hover { background: #e2edff; }
+.date-field-placeholder { color: #8a95a6; }
 .subscription-form label > span em { color: #9ba5b4; font-style: normal; font-weight: 450; }
 .subscription-form input, .subscription-form select, .subscription-form textarea, .category-create input, .category-delete-confirm select { width: 100%; min-height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; outline: 0; background: white; color: var(--ink); font-size: 13px; }
 .subscription-form textarea { padding-top: 11px; resize: vertical; line-height: 1.5; }
@@ -522,9 +524,10 @@ nextjs-portal { display: none !important; }
 .member-schedule-interval { display: grid; gap: 7px; }
 .member-schedule-interval > span { color: #536075; font-size: 11px; font-weight: 650; }
 .member-schedule-interval > div { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1fr); gap: 7px; }
-.member-reminder-toggle { margin-top: 11px; display: inline-flex; align-items: center; gap: 8px; color: #536075; font-size: 10px; font-weight: 600; cursor: pointer; }
-.member-reminder-toggle input { width: 15px; height: 15px; margin: 0; accent-color: var(--blue); }
-.member-reminder-toggle svg { color: #477ac6; }
+.subscription-form .member-reminder-toggle { width: fit-content; max-width: 100%; min-height: 28px; margin-top: 11px; display: inline-flex; align-items: center; justify-self: start; gap: 8px; color: #536075; font-size: 10px; font-weight: 600; cursor: pointer; }
+.subscription-form .member-reminder-toggle input[type="checkbox"] { width: 15px; height: 15px; min-height: 0; margin: 0; padding: 0; flex: 0 0 15px; border: 0; accent-color: var(--blue); }
+.member-reminder-toggle svg { flex: 0 0 auto; color: #477ac6; }
+.subscription-form .member-reminder-toggle > span { min-width: 0; color: inherit; font-size: inherit; font-weight: inherit; }
 .member-reminder-toggle:focus-within { outline: 3px solid rgb(39 104 237 / 20%); outline-offset: 3px; border-radius: 4px; }
 .member-schedules-editor button:focus-visible, .member-schedules-details button:focus-visible, .member-payment-history summary:focus-visible { outline: 3px solid rgb(39 104 237 / 23%); outline-offset: 2px; }
 

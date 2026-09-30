@@ -12,9 +12,11 @@ import {
 
 type DateFieldProps = {
   label: string;
-  name: string;
-  defaultValue: string;
+  name?: string;
+  defaultValue?: string;
+  value?: string;
   required?: boolean;
+  optional?: boolean;
   onChange?: (value: string) => void;
 };
 
@@ -40,8 +42,9 @@ function dayLabel(value: string) {
   }).format(new Date(`${value}T12:00:00Z`));
 }
 
-export function DateField({ label, name, defaultValue, required = false, onChange }: DateFieldProps) {
-  const [value, setValue] = useState(defaultValue);
+export function DateField({ label, name, defaultValue = "", value: controlledValue, required = false, optional = false, onChange }: DateFieldProps) {
+  const [internalValue, setInternalValue] = useState(defaultValue);
+  const value = controlledValue ?? internalValue;
   const [visibleMonth, setVisibleMonth] = useState(() => safeMonth(defaultValue));
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -99,7 +102,7 @@ export function DateField({ label, name, defaultValue, required = false, onChang
   }, [open]);
 
   function chooseDate(date: string) {
-    setValue(date);
+    if (controlledValue === undefined) setInternalValue(date);
     onChange?.(date);
     setVisibleMonth(safeMonth(date));
     setOpen(false);
@@ -107,8 +110,8 @@ export function DateField({ label, name, defaultValue, required = false, onChang
 
   return (
     <div className="date-field" ref={rootRef}>
-      <label htmlFor={buttonId}>{label}</label>
-      <input name={name} type="hidden" value={value} required={required} />
+      <label htmlFor={buttonId}><span>{label}{optional && <> <em>选填</em></>}</span></label>
+      {name && <input name={name} type="hidden" value={value} required={required} />}
       <button
         id={buttonId}
         className="date-field-trigger"
@@ -121,12 +124,12 @@ export function DateField({ label, name, defaultValue, required = false, onChang
           setOpen((current) => !current);
         }}
       >
-        <span>{displayDate(value)}</span>
+        <span className={value ? undefined : "date-field-placeholder"}>{value ? displayDate(value) : "选择日期"}</span>
         <CalendarDays size={17} aria-hidden="true" />
       </button>
 
       {open && (
-        <div ref={popoverRef} id={popoverId} className="date-popover" role="dialog" aria-label="选择日期">
+        <div ref={popoverRef} id={popoverId} className="date-popover" role="dialog" aria-label={`选择${label}`}>
           <div className="date-popover-head">
             <div className="date-quick-selects">
               <select aria-label="选择年份" value={visibleMonth.year} onChange={(event) => setVisibleMonth((month) => ({ ...month, year: Number(event.target.value) }))}>
@@ -163,8 +166,11 @@ export function DateField({ label, name, defaultValue, required = false, onChang
             ))}
           </div>
           <div className="date-popover-foot">
-            <span>{displayDate(value)}</span>
-            <button type="button" onClick={() => chooseDate(today)}>回到今天</button>
+            <span>{value ? displayDate(value) : "未设置"}</span>
+            <div className="date-popover-foot-actions">
+              {optional && value && <button type="button" onClick={() => chooseDate("")}>清除</button>}
+              <button type="button" onClick={() => chooseDate(today)}>回到今天</button>
+            </div>
           </div>
         </div>
       )}
