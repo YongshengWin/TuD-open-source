@@ -45,6 +45,7 @@ import { BrandIcon } from "./BrandIcon";
 import { BrandPicker } from "./BrandPicker";
 import { CalendarView } from "./CalendarView";
 import { DateField } from "./DateField";
+import { draftsToSchedules, MemberSchedulesDetails, MemberSchedulesFields, schedulesToDrafts } from "./MemberSchedules";
 import { daysUntilLocalDate, localDateKey } from "../../lib/subscription-calendar";
 import { formatCurrencyAmount, formatMonthlySpend, formatSubscriptionDate, monthlySpendByCurrency, totalMonthlySpendInCurrency } from "../../lib/subscription-display";
 import { groupSubscriptionsByCategory } from "../../lib/subscription-order";
@@ -327,7 +328,7 @@ export function Dashboard({
               <button onClick={() => { setShowAccount(false); setShowProfile(true); }}><UserRound size={16} />编辑资料</button>
               <button onClick={() => { window.location.href = "/settings/security"; }}><Settings size={16} />账户与安全</button>
               <button onClick={() => { window.location.href = "/settings/ai"; }}><Sparkles size={16} />AI 连接</button>
-              {reminderEligible && <button onClick={() => { setShowAccount(false); setShowReminderManager(true); }} disabled={!subscriptions.some((item) => item.billingCycle !== "lifetime")}><BellRing size={16} />到期提醒</button>}
+              {reminderEligible && <button onClick={() => { setShowAccount(false); setShowReminderManager(true); }} disabled={!subscriptions.some((item) => item.billingCycle !== "lifetime")}><BellRing size={16} />续费提醒</button>}
               <button onClick={() => { setShowAccount(false); setShowTicket(true); }} disabled={!subscriptions.length}><Ticket size={16} />订阅票</button>
               <button onClick={signOut}><LogOut size={16} />退出登录</button>
             </div>
@@ -517,9 +518,9 @@ function ReminderManagerModal({ subscriptions, onClose, onSaved }: { subscriptio
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="modal reminder-manager-modal" role="dialog" aria-modal="true" aria-labelledby="reminder-manager-title">
-        <div className="modal-head"><div><span className="modal-kicker">RENEWAL REMINDERS</span><h2 id="reminder-manager-title">批量管理到期提醒</h2></div><button onClick={onClose} aria-label="关闭"><X size={19} /></button></div>
+        <div className="modal-head"><div><span className="modal-kicker">RENEWAL REMINDERS</span><h2 id="reminder-manager-title">批量管理续费提醒</h2></div><button onClick={onClose} aria-label="关闭"><X size={19} /></button></div>
         <div className="reminder-manager-summary">
-          <div><BellRing size={18} /><span><strong>到期前 1 天发送邮件</strong><small>已开启 {enabledIds.size} / {eligible.length}</small></span></div>
+          <div><BellRing size={18} /><span><strong>续费前 1 天发送邮件</strong><small>已开启 {enabledIds.size} / {eligible.length}</small></span></div>
           <div><button type="button" onClick={() => setEnabledIds(new Set(eligible.map((item) => item.id)))} disabled={enabledIds.size === eligible.length}>全部开启</button><button type="button" onClick={() => setEnabledIds(new Set())} disabled={!enabledIds.size}>全部关闭</button></div>
         </div>
         <form className="reminder-manager-form" onSubmit={save}>
@@ -533,7 +534,7 @@ function ReminderManagerModal({ subscriptions, onClose, onSaved }: { subscriptio
               </label>
             ))}
           </div>
-          <p className="reminder-manager-note">永久订阅不会发送到期提醒。保存后只更新这里发生变化的订阅。</p>
+          <p className="reminder-manager-note">这里仅管理订阅续费提醒；成员收款提醒需在各订阅中单独设置。永久订阅没有续费提醒。</p>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="modal-actions"><button type="button" onClick={onClose}>取消</button><button className="save-button" disabled={saving || !changed.length}>{saving ? "正在保存…" : `保存${changed.length ? ` ${changed.length} 项` : ""}`}</button></div>
         </form>
@@ -755,14 +756,15 @@ function SubscriptionDetailModal({ item, categories, reminderEligible, onClose, 
               <div><dt>{item.billingCycle === "custom" ? "到期日期" : "下次续费"}</dt><dd>{formatDueDate(item)}</dd></div>
               <div><dt>分类</dt><dd>{item.groupName}</dd></div>
               <div><dt>币种</dt><dd>{item.currencyCode}</dd></div>
-              {reminderEligible && <div className="detail-wide"><dt>邮件提醒</dt><dd className={item.reminderEnabled ? "detail-reminder-on" : "detail-empty"}>{item.reminderEnabled ? <><BellRing size={14} />到期前 1 天</> : "未开启"}</dd></div>}
+              {reminderEligible && <div className="detail-wide"><dt>续费邮件提醒</dt><dd className={item.reminderEnabled ? "detail-reminder-on" : "detail-empty"}>{item.reminderEnabled ? <><BellRing size={14} />到期前 1 天</> : "未开启"}</dd></div>}
               <div className="detail-wide"><dt>账号</dt><dd className={item.accountName ? "" : "detail-empty"}>{item.accountName || "未记录"}</dd></div>
               {item.website && <div className="detail-wide"><dt>官网</dt><dd><a href={item.website} target="_blank" rel="noreferrer">打开官网 <ExternalLink size={13} /></a></dd></div>}
               <div className="detail-wide"><dt>备注</dt><dd className={item.notes ? "" : "detail-empty"}>{item.notes || "暂无备注"}</dd></div>
             </dl>
+            <MemberSchedulesDetails subscriptionId={item.id} schedules={item.memberSchedules} onSaved={onSaved} reminderEligible={reminderEligible} />
             {confirmingDelete ? (
               <div className="detail-delete-confirm" role="alert" aria-live="assertive">
-                <div><strong>删除“{item.name}”？</strong><p>删除后无法恢复，相关的提醒记录也会一并移除。</p></div>
+                <div><strong>删除“{item.name}”？</strong><p>删除后无法恢复，相关的提醒和成员收款记录也会一并删除。</p></div>
                 {error && <p className="detail-delete-error">{error}</p>}
                 <div className="detail-delete-actions">
                   <button ref={deleteCancelRef} type="button" onClick={() => { setConfirmingDelete(false); setError(""); }} disabled={deleting}>取消</button>
@@ -789,7 +791,9 @@ function SubscriptionDetailModal({ item, categories, reminderEligible, onClose, 
 function SubscriptionForm({ initial, categories, reminderEligible, onCancel, onSaved }: { initial?: SubscriptionRecord; categories: string[]; reminderEligible: boolean; onCancel: () => void; onSaved: (record: SubscriptionRecord) => void }) {
   const [icon, setIcon] = useState<BrandChoice>(() => initialBrand(initial));
   const [billingCycle, setBillingCycle] = useState(initial?.billingCycle ?? "monthly");
+  const [dueDate, setDueDate] = useState(initial?.dueDate ?? defaultDueDate());
   const [currencyCode, setCurrencyCode] = useState(initial?.currencyCode ?? "CNY");
+  const [memberSchedules, setMemberSchedules] = useState(() => schedulesToDrafts(initial?.memberSchedules ?? []));
   const [website, setWebsite] = useState(initial?.website ?? "");
   const [cardAccent, setCardAccent] = useState(initial?.cardAccent ? `#${initial.cardAccent}` : "");
   const [saving, setSaving] = useState(false);
@@ -830,6 +834,8 @@ function SubscriptionForm({ initial, categories, reminderEligible, onCancel, onS
         accountName: form.get("accountName"),
         website,
         notes: form.get("notes"),
+        memberSchedules: draftsToSchedules(memberSchedules),
+        expectedUpdatedAt: initial ? new Date(initial.updatedAt).toISOString() : undefined,
         reminderEnabled: reminderEligible && billingCycle !== "lifetime" && form.get("reminderEnabled") === "on",
       }),
     });
@@ -892,7 +898,8 @@ function SubscriptionForm({ initial, categories, reminderEligible, onCancel, onS
             label={billingCycle === "custom" ? "到期日期" : "续费日期"}
             name="dueDate"
             required
-            defaultValue={initial?.dueDate ?? defaultDueDate()}
+            defaultValue={dueDate}
+            onChange={setDueDate}
           />
         )}
       </div>
@@ -904,12 +911,13 @@ function SubscriptionForm({ initial, categories, reminderEligible, onCancel, onS
       </div>
       <label><span>账号 <em>选填</em></span><input name="accountName" maxLength={160} defaultValue={initial?.accountName ?? ""} placeholder="邮箱、用户名或会员号（请勿填写密码）" /></label>
       <label><span>备注 <em>选填</em></span><textarea name="notes" rows={3} maxLength={1000} defaultValue={initial?.notes ?? ""} placeholder="记录套餐或续费说明" /></label>
+      <MemberSchedulesFields value={memberSchedules} onChange={setMemberSchedules} currencyCode={currencyCode} dueDate={dueDate} reminderEligible={reminderEligible} />
       {reminderEligible && billingCycle !== "lifetime" && (
         <label className="reminder-toggle">
           <input name="reminderEnabled" type="checkbox" defaultChecked={initial?.reminderEnabled ?? false} />
           <span aria-hidden="true" />
           <BellRing size={17} />
-          <div><strong>到期前 1 天邮件提醒</strong><small>每天上午检查一次，单个到期日只发送一封。</small></div>
+          <div><strong>订阅续费前 1 天邮件提醒</strong><small>成员收款提醒可在上方单独设置。</small></div>
         </label>
       )}
       {error && <p className="form-error">{error}</p>}

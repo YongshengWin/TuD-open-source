@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import type { MemberSchedule } from "../lib/member-schedules";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -164,6 +165,7 @@ export const subscriptions = pgTable("subscriptions", {
   accountName: text("account_name"),
   website: text("website"),
   notes: text("notes").notNull().default(""),
+  memberSchedules: jsonb("member_schedules").$type<MemberSchedule[]>().notNull().default(sql`'[]'::jsonb`),
   reminderEnabled: boolean("reminder_enabled").notNull().default(false),
   sortPosition: integer("sort_position").notNull().default(0),
   isArchived: boolean("is_archived").notNull().default(false),
@@ -172,8 +174,23 @@ export const subscriptions = pgTable("subscriptions", {
 }, (table) => [
   check("subscriptions_card_accent_hex_check", sql`${table.cardAccent} IS NULL OR ${table.cardAccent} ~ '^[0-9a-f]{6}$'`),
   index("idx_subscriptions_user_due").on(table.userId, table.isArchived, table.dueDate),
+  index("idx_subscriptions_member_schedules").using("gin", table.memberSchedules),
   index("idx_subscriptions_user_sort").on(table.userId, table.isArchived, table.sortPosition),
   index("idx_subscriptions_icon").on(table.iconId),
+]);
+
+export const subscriptionMemberPayments = pgTable("subscription_member_payments", {
+  id: text("id").primaryKey(),
+  subscriptionId: text("subscription_id").notNull().references(() => subscriptions.id, { onDelete: "cascade" }),
+  memberId: text("member_id").notNull(),
+  memberName: text("member_name").notNull(),
+  scheduledDueDate: text("scheduled_due_date").notNull(),
+  amountMinor: integer("amount_minor").notNull(),
+  currencyCode: text("currency_code").notNull(),
+  collectedAt: timestamp("collected_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  check("subscription_member_payments_amount_check", sql`${table.amountMinor} >= 0`),
+  index("subscription_member_payments_sub_collected_idx").on(table.subscriptionId, table.collectedAt),
 ]);
 
 export const subscriptionReminderDeliveries = pgTable("subscription_reminder_deliveries", {

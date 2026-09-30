@@ -18,6 +18,13 @@
 - 用户可修改昵称与头像；头像数据仍保存在 PostgreSQL
 - 修改登录邮箱需要依次验证当前邮箱和新邮箱
 - 网格、列表与日历三种视图；移动端日历自动切换为紧凑日程列表
+- 每条订阅可为家庭成员单独设置收款金额、币种、下次收款日与自定义天／周／月／年周期；收款记录保存在服务端，不创建成员登录账号
+
+## 成员收款
+
+在订阅编辑页添加成员收款安排，成员可有不同的加入日期、收款金额、币种和周期。详情页可逐人“标记已收款”，系统记录实际收款时间和当期应收快照，再按该成员的周期推进下次日期；历史可在详情页继续翻阅。成员收款与订阅本身的费用、续费日期、支出汇总分开计算。每位成员可独立开启收款前一天的邮件提醒，发送到管理者账号邮箱；同一订阅同日应收合并为一封邮件。提醒资格沿用现有的邮件提醒账户配置。
+
+此功能使用新增的 `member_schedules` 字段和 `subscription_member_payments` 表。迁移只添加字段和表；旧订阅的成员列表默认为空。永久删除订阅时，该订阅的成员收款历史也会一并删除，界面会在删除前提示。
 
 ## 本地启动
 
@@ -87,7 +94,7 @@ certbot --nginx -d tud.example.com --email admin@example.com --agree-tos --no-ef
 - `POSTGRES_PASSWORD`：建议使用 `openssl rand -hex 32`
 - `BETTER_AUTH_SECRET`：建议使用另一份 `openssl rand -hex 32`
 - `REMINDER_CRON_SECRET`：再生成一份独立的 `openssl rand -hex 32`，只用于保护内部提醒任务
-- `SUBSCRIPTION_REMINDER_EMAILS`：允许开启到期提醒的账号邮箱，多个邮箱用英文逗号分隔；留空时沿用 `EMAIL_QUOTA_WHITELIST`
+- `SUBSCRIPTION_REMINDER_EMAILS`：允许开启到期提醒的账号邮箱，多个邮箱用英文逗号分隔；未设置时沿用 `EMAIL_QUOTA_WHITELIST`，明确设为空时关闭提醒
 - 完整 SMTP 配置和真实的 `EMAIL_FROM`
 
 认证邮件默认按 UTC 自然日限制为全站 100 封、每个收件邮箱 3 封。`EMAIL_QUOTA_WHITELIST` 中的邮箱不受单邮箱限制，但仍计入全站额度。全站额度耗尽后，注册和新密码找回会自动关闭，登录与 Passkey 不受影响。可通过 `PUBLIC_AUTH_ANNOUNCEMENT` 在登录卡片发布最多 240 字的临时公告；留空时不显示。
@@ -146,13 +153,13 @@ install -m 644 deploy/tud-backup.cron /etc/cron.d/tud-backup
 
 任务每天 UTC 03:17 写入 `backups/`，日志位于 `/var/log/tud-backup.log`。
 
-只有 `SUBSCRIPTION_REMINDER_EMAILS` 中配置的账号可以在订阅表单开启“到期前 1 天邮件提醒”。安装每日提醒任务：
+只有 `SUBSCRIPTION_REMINDER_EMAILS` 中配置的账号可以开启订阅续费或成员收款邮件提醒；未设置该变量时沿用 `EMAIL_QUOTA_WHITELIST`，明确设为空则关闭提醒。成员提醒在每位成员的收款安排中单独开启。安装每日提醒任务：
 
 ```bash
 install -m 644 deploy/tud-reminders.cron /etc/cron.d/tud-reminders
 ```
 
-任务每天北京时间 08:05 执行。每个“订阅 + 到期日期”只会发送一次，重复调用不会重复消耗邮件额度；日志位于 `/var/log/tud-reminders.log`。
+任务每天北京时间 08:05 检查次日到期项目。同一订阅同日的续费和多位成员应收合成一封邮件，分别列出支出与应收。发送记录会在正常重复执行时防止重发；若邮件服务已接收邮件、而数据库未能记录发送成功，重试仍可能再发一次。日志位于 `/var/log/tud-reminders.log`。
 
 备份默认写入服务器的 `backups/`，权限为 `600`。建议通过 cron 每天执行，并把备份同步到另一台机器或对象存储；仅保存在同一块服务器磁盘上不算有效灾备。恢复前先停应用并在独立环境验证备份文件。
 

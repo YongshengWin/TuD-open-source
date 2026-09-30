@@ -405,8 +405,10 @@ nextjs-portal { display: none !important; }
 .date-days button.selected:hover { background: #1f5fdc; color: white; }
 .date-popover-foot { margin-top: 10px; padding-top: 10px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #edf0f4; }
 .date-popover-foot span { color: #8a95a6; font-size: 10px; font-variant-numeric: tabular-nums; }
+.date-popover-foot-actions { display: flex; align-items: center; gap: 6px; }
 .date-popover-foot button { min-height: 30px; padding: 0 9px; border: 0; border-radius: 8px; background: #edf4ff; color: #2b62bb; font-size: 10px; font-weight: 650; cursor: pointer; }
 .date-popover-foot button:hover { background: #e2edff; }
+.date-field-placeholder { color: #8a95a6; }
 .subscription-form label > span em { color: #9ba5b4; font-style: normal; font-weight: 450; }
 .subscription-form input, .subscription-form select, .subscription-form textarea, .category-create input, .category-delete-confirm select { width: 100%; min-height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; outline: 0; background: white; color: var(--ink); font-size: 13px; }
 .subscription-form textarea { padding-top: 11px; resize: vertical; line-height: 1.5; }
@@ -504,6 +506,55 @@ nextjs-portal { display: none !important; }
 .reminder-toggle > div { display: grid; gap: 3px; }
 .reminder-toggle strong { color: #263750; font-size: 11px; }
 .reminder-toggle small { color: #8190a5; font-size: 9px; line-height: 1.45; }
+
+.member-schedules-editor { padding: 15px; border: 1px solid #dce4ef; border-radius: 13px; background: #f8fafd; }
+.member-schedules-editor-head, .member-schedules-details-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.member-schedules-editor-head > div { min-width: 0; }
+.member-schedules-editor-head strong, .member-schedules-details-head strong { display: inline-flex; align-items: center; gap: 7px; color: #263750; font-size: 12px; font-weight: 680; }
+.member-schedules-editor-head strong svg, .member-schedules-details-head strong svg { color: #3b70bf; }
+.member-schedules-editor-head p { margin: 4px 0 0; color: #8190a2; font-size: 10px; line-height: 1.5; }
+.member-schedules-editor-head button { min-height: 34px; padding: 0 11px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex: 0 0 auto; border: 1px solid #bdcee6; border-radius: 9px; background: white; color: #3564aa; font-size: 10px; font-weight: 650; cursor: pointer; }
+.member-schedules-editor-head button:disabled { opacity: .45; cursor: default; }
+.member-schedules-editor-list { margin-top: 13px; display: grid; gap: 9px; }
+.member-schedule-editor { padding: 12px; border: 1px solid #dfe7f1; border-radius: 11px; background: white; }
+.member-schedule-editor-top { margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+.member-schedule-editor-top strong { color: #536077; font-size: 11px; font-weight: 650; }
+.member-schedule-editor-top button { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid #ead5ce; border-radius: 8px; background: #fffaf8; color: #b66048; cursor: pointer; }
+.member-schedule-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.member-schedule-interval { display: grid; gap: 7px; }
+.member-schedule-interval > span { color: #536075; font-size: 11px; font-weight: 650; }
+.member-schedule-interval > div { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1fr); gap: 7px; }
+.subscription-form .member-reminder-toggle { width: fit-content; max-width: 100%; min-height: 28px; margin-top: 11px; display: inline-flex; align-items: center; justify-self: start; gap: 8px; color: #536075; font-size: 10px; font-weight: 600; cursor: pointer; }
+.subscription-form .member-reminder-toggle input[type="checkbox"] { width: 15px; height: 15px; min-height: 0; margin: 0; padding: 0; flex: 0 0 15px; border: 0; accent-color: var(--blue); }
+.member-reminder-toggle svg { flex: 0 0 auto; color: #477ac6; }
+.subscription-form .member-reminder-toggle > span { min-width: 0; color: inherit; font-size: inherit; font-weight: inherit; }
+.member-reminder-toggle:focus-within { outline: 3px solid rgb(39 104 237 / 20%); outline-offset: 3px; border-radius: 4px; }
+.member-schedules-editor button:focus-visible, .member-schedules-details button:focus-visible, .member-payment-history summary:focus-visible { outline: 3px solid rgb(39 104 237 / 23%); outline-offset: 2px; }
+
+.member-schedules-details { margin-top: 12px; padding: 14px; border: 1px solid #e0e7f0; border-radius: 12px; background: #f8fafc; }
+.member-schedules-details-head > span { color: #7c889a; font-size: 10px; }
+.member-schedules-empty { margin: 10px 0 0; color: #8490a1; font-size: 10px; line-height: 1.5; }
+.member-schedules-list { margin-top: 9px; display: grid; }
+.member-schedule-row { min-height: 64px; padding: 10px 0; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px 12px; border-top: 1px solid #e5eaf1; }
+.member-schedule-identity, .member-schedule-payment { min-width: 0; display: grid; gap: 4px; }
+.member-schedule-identity strong { overflow-wrap: anywhere; color: #263750; font-size: 12px; }
+.member-schedule-payment { text-align: right; }
+.member-schedule-payment strong { color: #263750; font-size: 12px; font-variant-numeric: tabular-nums; }
+.member-schedule-identity small, .member-schedule-payment small { color: #8490a1; font-size: 9px; }
+.member-schedule-row button { min-height: 32px; padding: 0 9px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 1px solid #b9cae2; border-radius: 8px; background: white; color: #2b62bb; font-size: 9px; font-weight: 650; white-space: nowrap; cursor: pointer; }
+.member-schedule-row button:disabled { opacity: .55; cursor: wait; }
+.member-schedules-feedback { margin: 7px 0 0; color: #58769e; font-size: 10px; line-height: 1.5; }
+.member-payment-history { margin-top: 5px; padding-top: 10px; border-top: 1px solid #e5eaf1; }
+.member-payment-history summary { width: fit-content; color: #4770aa; font-size: 10px; font-weight: 650; cursor: pointer; }
+.member-payment-history > p { margin: 9px 0 0; color: #8490a1; font-size: 10px; }
+.member-payment-history > div { margin-top: 8px; max-height: 180px; overflow: auto; }
+.member-payment-history > div > div { padding: 8px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #e5eaf1; }
+.member-payment-history > div > div > span { display: grid; gap: 3px; }
+.member-payment-history strong { color: #344157; font-size: 10px; }
+.member-payment-history small { color: #8a95a5; font-size: 9px; }
+.member-payment-history p button { padding: 0; border: 0; background: transparent; color: #2b62bb; font: inherit; font-weight: 650; cursor: pointer; }
+.member-history-more { min-height: 30px; margin-top: 8px; padding: 0 10px; border: 1px solid #bdcee6; border-radius: 8px; background: white; color: #3564aa; font-size: 10px; font-weight: 650; cursor: pointer; }
+.member-history-more:disabled { opacity: .55; cursor: wait; }
 
 .detail-backdrop { background: rgb(22 29 42 / 42%); backdrop-filter: blur(8px); }
 .detail-modal { width: min(620px, 100%); }
@@ -720,6 +771,9 @@ nextjs-portal { display: none !important; }
 }
 
 @media (max-width: 620px) {
+  .member-schedule-form-grid { grid-template-columns: 1fr; }
+  .member-schedule-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .member-schedule-row button { grid-column: 1 / -1; justify-self: start; }
   .renewal-header { height: 60px; padding: 0 16px; }
   .renewal-brand img { width: 29px; height: 29px; }
   .renewal-brand strong { font-size: 18px; }

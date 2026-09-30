@@ -1,0 +1,1 @@
+CREATE INDEX "idx_subscriptions_member_schedules" ON "subscriptions" USING gin ("member_schedules");

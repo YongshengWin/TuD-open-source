@@ -17,6 +17,8 @@ export const aiSubscriptionWritableFields = [
   "website",
   "notes",
   "reminderEnabled",
+  "memberSchedules",
+  "expectedUpdatedAt",
 ] as const;
 
 const writableFieldSet = new Set<string>(aiSubscriptionWritableFields);
@@ -32,4 +34,4 @@ export function parseSubscriptionStatus(value: string | null): "active" | "archi
   throw new Error("status 只能是 active、archived 或 all");
 }
 
-export const aiWriteConfirmationRule = "创建、更新、续费、排序、归档、恢复、永久删除、分类管理、图标发现或偏好修改前，必须复述具体变更并获得用户明确确认。";
+export const aiWriteConfirmationRule = "创建、更新、续费、标记成员已收款、排序、归档、恢复、永久删除、分类管理、图标发现或偏好修改前，必须复述具体变更并获得用户明确确认。";

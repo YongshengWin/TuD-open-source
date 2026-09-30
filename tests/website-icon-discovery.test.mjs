@@ -253,6 +253,47 @@ test("loads the exact HTTPS DMIT artwork from the official domain mapping", asyn
   assert.match(result?.upstreamSha256 ?? "", /^[0-9a-f]{64}$/);
 });
 
+test("loads Tello's declared touch icon without requesting its blocked homepage", async () => {
+  for (const website of ["tello.com", "https://www.tello.com/account/home"]) {
+    const requests = [];
+    const result = await discoverOfficialDomainIcon(website, {
+      resolver: async () => [PUBLIC_ADDRESS],
+      requester: async (request) => {
+        requests.push(request.url.toString());
+        if (request.url.toString() === "https://tello.com/images/favicons/apple-touch-icon.png") {
+          return response(200, PNG);
+        }
+        return response(403, "<title>Just a moment...</title>");
+      },
+    });
+    assert.deepEqual(requests, ["https://tello.com/images/favicons/apple-touch-icon.png"]);
+    assert.equal(result?.mappedDomain, "tello.com");
+    assert.equal(result?.website, "https://tello.com/");
+    assert.equal(result?.title, "Tello");
+    assert.equal(result?.mimeType, "image/png");
+    assert.deepEqual(result?.bytes, PNG);
+  }
+});
+
+test("Tello mapping rejects lookalikes, private addresses, redirects, and HTML challenges", async () => {
+  const unexpectedRequest = async () => { throw new Error("must not request"); };
+  assert.equal(await discoverOfficialDomainIcon("tello.com.attacker.example", {
+    requester: unexpectedRequest,
+  }), null);
+  await assert.rejects(discoverOfficialDomainIcon("tello.com", {
+    resolver: async () => [{ address: "127.0.0.1", family: 4 }],
+    requester: unexpectedRequest,
+  }), expectDiscoveryError("UNSAFE_URL"));
+  await assert.rejects(discoverOfficialDomainIcon("tello.com", {
+    resolver: async () => [PUBLIC_ADDRESS],
+    requester: async () => response(302, "", { location: "https://example.com/icon.png" }),
+  }), expectDiscoveryError("TOO_MANY_REDIRECTS"));
+  await assert.rejects(discoverOfficialDomainIcon("tello.com", {
+    resolver: async () => [PUBLIC_ADDRESS],
+    requester: async () => response(200, "<html><title>Just a moment...</title></html>"),
+  }), expectDiscoveryError("NO_ICON"));
+});
+
 test("loads the VMISS raster favicon through its official-domain mapping", async () => {
   const result = await discoverOfficialDomainIcon("https://app.vmiss.com/index.php", {
     resolver: async (hostname) => {

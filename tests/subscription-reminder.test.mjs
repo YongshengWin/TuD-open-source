@@ -14,6 +14,23 @@ test("only the configured owner email can enable subscription reminders", () => 
   assert.equal(canUseSubscriptionReminders(" OWNER@example.test ", configuredEmails), true);
   assert.equal(canUseSubscriptionReminders("another@example.test", configuredEmails), false);
   assert.deepEqual(subscriptionReminderEmails(" OWNER@example.test,owner@example.test "), ["owner@example.test"]);
+  assert.deepEqual(subscriptionReminderEmails(""), []);
+});
+
+test("an explicitly empty reminder allowlist disables delivery", () => {
+  const previousReminder = process.env.SUBSCRIPTION_REMINDER_EMAILS;
+  const previousWhitelist = process.env.EMAIL_QUOTA_WHITELIST;
+  try {
+    process.env.SUBSCRIPTION_REMINDER_EMAILS = "   ";
+    process.env.EMAIL_QUOTA_WHITELIST = " owner@example.test ";
+    assert.deepEqual(subscriptionReminderEmails(), []);
+    assert.equal(canUseSubscriptionReminders("owner@example.test"), false);
+  } finally {
+    if (previousReminder === undefined) delete process.env.SUBSCRIPTION_REMINDER_EMAILS;
+    else process.env.SUBSCRIPTION_REMINDER_EMAILS = previousReminder;
+    if (previousWhitelist === undefined) delete process.env.EMAIL_QUOTA_WHITELIST;
+    else process.env.EMAIL_QUOTA_WHITELIST = previousWhitelist;
+  }
 });
 
 test("validates a bounded, unique batch of reminder changes", () => {

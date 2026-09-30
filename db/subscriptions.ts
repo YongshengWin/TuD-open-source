@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, count, eq, inArray, max, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, lt, max, ne, or, sql } from "drizzle-orm";
 import {
   addBillingCycle,
   isBillingCycle,
@@ -7,12 +7,14 @@ import {
 } from "../lib/subscription-options";
 import { normalizeBrandSelection } from "../lib/brand-catalog.server";
 import { normalizeSubscriptionCardAccent } from "../lib/subscription-card-accent";
+import { advanceMemberDueDate, normalizeMemberSchedules, type MemberSchedule } from "../lib/member-schedules";
 import type { SubscriptionReminderUpdate } from "../lib/subscription-reminder";
 import { assertCompleteSubscriptionOrder, MAX_ORDERED_SUBSCRIPTIONS, normalizeSubscriptionOrder } from "../lib/subscription-order";
 import { db } from "./index";
-import { subscriptionCategories, subscriptions } from "./schema";
+import { subscriptionCategories, subscriptionMemberPayments, subscriptions } from "./schema";
 
 export type SubscriptionRecord = typeof subscriptions.$inferSelect;
+export type MemberPaymentRecord = Omit<typeof subscriptionMemberPayments.$inferSelect, "collectedAt"> & { collectedAt: string };
 
 export type SubscriptionWriteInput = {
   name?: unknown;
@@ -28,6 +30,8 @@ export type SubscriptionWriteInput = {
   accountName?: unknown;
   website?: unknown;
   notes?: unknown;
+  memberSchedules?: unknown;
+  expectedUpdatedAt?: unknown;
   reminderEnabled?: unknown;
 };
 
@@ -62,7 +66,7 @@ function normalizeAccountName(value: unknown) {
   return normalized || null;
 }
 
-async function normalizeSubscriptionInput(input: SubscriptionWriteInput, allowReminder = false) {
+async function normalizeSubscriptionInput(input: SubscriptionWriteInput, allowReminder = false, previousSchedules: readonly MemberSchedule[] = [], previousReminderEnabled = false) {
   const name = normalizeText(input.name, "", 80);
   if (!name) throw new Error("请输入服务名称");
 
@@ -93,7 +97,10 @@ async function normalizeSubscriptionInput(input: SubscriptionWriteInput, allowRe
     accountName: normalizeAccountName(input.accountName),
     website: normalizeWebsite(input.website),
     notes,
-    reminderEnabled: allowReminder && billingCycle !== "lifetime" && input.reminderEnabled === true,
+    memberSchedules: normalizeMemberSchedules(input.memberSchedules === undefined ? [] : input.memberSchedules, previousSchedules, allowReminder),
+    reminderEnabled: billingCycle !== "lifetime" && (allowReminder
+      ? input.reminderEnabled === true
+      : previousReminderEnabled && input.reminderEnabled !== false),
   };
 }
 
@@ -189,11 +196,16 @@ export async function reorderSubscriptions(userId: string, value: unknown) {
 }
 
 export async function updateSubscription(userId: string, id: string, input: SubscriptionWriteInput, allowReminder = false) {
-  const current = await getSubscription(userId, id);
-  if (!current) throw new Error("订阅不存在");
-  const values = await normalizeSubscriptionInput({ ...current, ...input }, allowReminder);
-
   return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(subscriptions)
+      .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId), eq(subscriptions.isArchived, false)))
+      .limit(1)
+      .for("update");
+    if (!current) throw new Error("订阅不存在");
+    if (input.memberSchedules !== undefined && input.expectedUpdatedAt !== current.updatedAt.toISOString()) {
+      throw new Error("订阅已变化，请刷新后重试");
+    }
+    const values = await normalizeSubscriptionInput({ ...current, ...input }, allowReminder, current.memberSchedules, current.reminderEnabled);
     await tx.insert(subscriptionCategories).values({
       id: crypto.randomUUID(),
       userId,
@@ -201,7 +213,7 @@ export async function updateSubscription(userId: string, id: string, input: Subs
       sortPosition: sql`coalesce((select max(sc.sort_position) + 1 from subscription_categories sc where sc.user_id = ${userId}), 0)`,
     }).onConflictDoNothing();
     const [updated] = await tx.update(subscriptions)
-      .set({ ...values, updatedAt: new Date() })
+      .set({ ...values, updatedAt: new Date(Math.max(Date.now(), current.updatedAt.getTime() + 1)) })
       .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId), eq(subscriptions.isArchived, false)))
       .returning();
     if (!updated) throw new Error("订阅不存在");
@@ -256,9 +268,102 @@ export async function renewSubscription(userId: string, id: string) {
   return updated;
 }
 
+function publicMemberPayment(payment: typeof subscriptionMemberPayments.$inferSelect): MemberPaymentRecord {
+  return { ...payment, collectedAt: payment.collectedAt.toISOString() };
+}
+
+const MEMBER_PAYMENT_PAGE_SIZE = 50;
+
+function parseMemberPaymentCursor(value: string | null) {
+  if (value === null) return null;
+  try {
+    if (!/^[A-Za-z0-9_-]{1,512}$/.test(value)) throw new Error();
+    const decoded = Buffer.from(value, "base64url");
+    if (decoded.toString("base64url") !== value) throw new Error();
+    const cursor = JSON.parse(decoded.toString("utf8")) as unknown;
+    if (!cursor || typeof cursor !== "object" || Array.isArray(cursor)) throw new Error();
+    const { at, id } = cursor as { at?: unknown; id?: unknown };
+    if (typeof at !== "string" || typeof id !== "string"
+      || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(at)
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+      || new Date(at).toISOString() !== at) throw new Error();
+    return { at: new Date(at), id };
+  } catch {
+    throw new Error("收款记录分页参数不正确");
+  }
+}
+
+function memberPaymentCursor(payment: typeof subscriptionMemberPayments.$inferSelect) {
+  return Buffer.from(JSON.stringify({ at: payment.collectedAt.toISOString(), id: payment.id })).toString("base64url");
+}
+
+export async function listMemberPayments(userId: string, subscriptionId: string, cursorValue: string | null = null): Promise<{ payments: MemberPaymentRecord[]; nextCursor: string | null }> {
+  const cursor = parseMemberPaymentCursor(cursorValue);
+  const subscription = await getSubscription(userId, subscriptionId);
+  if (!subscription) throw new Error("订阅不存在");
+  const records = await db.select({ payment: subscriptionMemberPayments }).from(subscriptionMemberPayments)
+    .innerJoin(subscriptions, eq(subscriptionMemberPayments.subscriptionId, subscriptions.id))
+    .where(and(
+      eq(subscriptions.id, subscriptionId),
+      eq(subscriptions.userId, userId),
+      eq(subscriptions.isArchived, false),
+      cursor ? or(
+        lt(subscriptionMemberPayments.collectedAt, cursor.at),
+        and(eq(subscriptionMemberPayments.collectedAt, cursor.at), lt(subscriptionMemberPayments.id, cursor.id)),
+      ) : undefined,
+    ))
+    .orderBy(desc(subscriptionMemberPayments.collectedAt), desc(subscriptionMemberPayments.id))
+    .limit(MEMBER_PAYMENT_PAGE_SIZE + 1);
+  const page = records.slice(0, MEMBER_PAYMENT_PAGE_SIZE);
+  return {
+    payments: page.map((record) => publicMemberPayment(record.payment)),
+    nextCursor: records.length > MEMBER_PAYMENT_PAGE_SIZE ? memberPaymentCursor(page[page.length - 1].payment) : null,
+  };
+}
+
+export async function collectMemberPayment(userId: string, subscriptionId: string, memberId: string, expectedDueDate: unknown) {
+  if (typeof expectedDueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(expectedDueDate)) {
+    throw new Error("请提供本次收款日期");
+  }
+  return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(subscriptions)
+      .where(and(eq(subscriptions.id, subscriptionId), eq(subscriptions.userId, userId), eq(subscriptions.isArchived, false)))
+      .limit(1)
+      .for("update");
+    if (!current) throw new Error("订阅不存在");
+    const memberIndex = current.memberSchedules.findIndex((member) => member.id === memberId);
+    if (memberIndex < 0) throw new Error("收款成员不存在");
+    const member = current.memberSchedules[memberIndex];
+    if (member.nextDueDate !== expectedDueDate) throw new Error("收款日期已变化，请刷新后重试");
+
+    const collectedAt = new Date();
+    const updatedAt = new Date(Math.max(collectedAt.getTime(), current.updatedAt.getTime() + 1));
+    const nextDueDate = advanceMemberDueDate(member.nextDueDate, member.intervalCount, member.intervalUnit, member.anchorDay);
+    const updatedSchedules = current.memberSchedules.map((item, index) => index === memberIndex
+      ? { ...item, nextDueDate, lastCollectedAt: collectedAt.toISOString() }
+      : item);
+    const [subscription] = await tx.update(subscriptions)
+      .set({ memberSchedules: updatedSchedules, updatedAt })
+      .where(and(eq(subscriptions.id, subscriptionId), eq(subscriptions.userId, userId), eq(subscriptions.isArchived, false)))
+      .returning();
+    if (!subscription) throw new Error("订阅不存在");
+    const [payment] = await tx.insert(subscriptionMemberPayments).values({
+      id: crypto.randomUUID(),
+      subscriptionId,
+      memberId,
+      memberName: member.name,
+      scheduledDueDate: member.nextDueDate,
+      amountMinor: member.amountMinor,
+      currencyCode: member.currencyCode,
+      collectedAt,
+    }).returning();
+    return { subscription, payment: publicMemberPayment(payment) };
+  });
+}
+
 export async function archiveSubscription(userId: string, id: string) {
   const [archived] = await db.update(subscriptions)
-    .set({ isArchived: true, reminderEnabled: false, updatedAt: new Date() })
+    .set({ isArchived: true, updatedAt: new Date() })
     .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId), eq(subscriptions.isArchived, false)))
     .returning();
   if (!archived) throw new Error("订阅不存在或已归档");

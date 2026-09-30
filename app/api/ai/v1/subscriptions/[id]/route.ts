@@ -1,6 +1,6 @@
 import { archiveSubscription, getSubscription, getSubscriptionIncludingArchived, permanentlyDeleteSubscription, updateSubscription } from "../../../../../../db/subscriptions";
 import { authorizeAiRequest } from "../../../../../../lib/ai-api-auth.server";
-import { aiJson, publicSubscription, readAiJson, subscriptionInputFromAi, unauthorizedAiResponse } from "../../../../../../lib/ai-api.server";
+import { aiJson, isAiSubscriptionConflict, publicSubscription, readAiJson, subscriptionInputFromAi, unauthorizedAiResponse } from "../../../../../../lib/ai-api.server";
 import { canUseSubscriptionReminders } from "../../../../../../lib/subscription-reminder";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -20,11 +20,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const { id } = await context.params;
     const current = await getSubscription(identity.userId, id);
     if (!current) return aiJson({ error: "not_found", message: "订阅不存在" }, { status: 404 });
-    const input = subscriptionInputFromAi(await readAiJson(request), current.currencyCode);
+    const input = subscriptionInputFromAi(await readAiJson(request), current.currencyCode, "update");
     const updated = await updateSubscription(identity.userId, id, input, canUseSubscriptionReminders(identity.email));
     return aiJson({ subscription: publicSubscription(updated) });
   } catch (error) {
-    return aiJson({ error: "invalid_request", message: error instanceof Error ? error.message : "更新失败" }, { status: 400 });
+    const conflict = isAiSubscriptionConflict(error);
+    return aiJson({ error: conflict ? "conflict" : "invalid_request", message: error instanceof Error ? error.message : "更新失败" }, { status: conflict ? 409 : 400 });
   }
 }
 

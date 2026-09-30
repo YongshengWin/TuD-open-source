@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArchiveRestore, Braces, CalendarSync, Copy, FileJson2, House, Image as ImageIcon, KeyRound, ListFilter, Plus, ReceiptText, ShieldCheck, Sparkles, Tags, Trash2 } from "lucide-react";
+import { ArchiveRestore, Braces, CalendarSync, CircleDollarSign, Copy, FileJson2, House, Image as ImageIcon, KeyRound, ListFilter, Plus, ReceiptText, ShieldCheck, Sparkles, Tags, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 type KeyItem = {
@@ -27,6 +27,8 @@ function aiPrompt(origin: string, token: string) {
 - POST /subscriptions：创建订阅。
 - PATCH /subscriptions/{id}：更新订阅。
 - POST /subscriptions/{id}/renew：把续费日准确推进一个账单周期。
+- GET /subscriptions/{id}/member-payments：分页读取成员收款记录；首次不传 cursor，后续用 ?cursor={nextCursor} 继续读取。
+- POST /subscriptions/{id}/members/{memberId}/collect：确认实际收到成员款项后记录收款，并推进该成员的下次收款日期。
 - DELETE /subscriptions/{id}：归档订阅；永久删除必须添加 ?permanent=true&confirm={id}。
 - POST /subscriptions/{id}/restore：恢复已归档订阅。
 - PATCH /subscriptions/order：调整全部有效订阅顺序。
@@ -37,21 +39,25 @@ function aiPrompt(origin: string, token: string) {
 - 用户要求订阅票时，调用 /ticket 并把返回的 PNG 作为图片直接交付，不要只用文字复述票据内容。
 
 写入字段
-- name、iconId、groupName、amount、currencyCode、billingCycle、dueDate、cardAccent、accountName、website、notes、reminderEnabled。
+- name、iconId、groupName、amount、currencyCode、billingCycle、dueDate、cardAccent、accountName、website、notes、reminderEnabled、memberSchedules。
+- expectedUpdatedAt 仅用于更新成员收款计划，不能在创建订阅时发送。
 - 创建订阅前必须先搜索或创建图标并取得 iconId；不要编造 iconId。
-- amount 使用主单位，例如 12.99 美元写 12.99；不要与 amountMinor 同时发送。
+- 订阅顶层的 amount 使用主单位，例如 12.99 美元写 12.99；不要与订阅顶层的 amountMinor 同时发送。成员计划里的 amountMinor 是独立字段。
 - billingCycle 只能是 monthly、quarterly、semiannual、yearly、biennial、triennial、custom、lifetime。
 - 除 lifetime 外，dueDate 使用 YYYY-MM-DD。
 - cardAccent 使用 6 位十六进制颜色；null 表示跟随图标。
 - reminderEnabled 仅在 GET /preferences 返回 reminderEligible=true 时可开启。
+- memberSchedules 为每位成员分别记录应收金额、币种、下次收款日和重复周期，不创建登录子账号。成员金额使用币种最小单位的整数 amountMinor：CNY 10 元为 1000，JPY 10 円为 10，KWD 1 第纳尔为 1000；不要按订阅本身的主单位 amount 填写。每位成员可单独设 reminderEnabled=true，在有提醒资格时于收款前 1 天通知管理者邮箱；同一订阅同日应收合并发送。PATCH 时必须把最新订阅 updatedAt 原样作为 expectedUpdatedAt 回传；保留已有成员时，必须回传其 id 和最新 lastCollectedAt（首次收款前为 null）。anchorDay 由服务端维护。传空数组清除，省略则保留；状态变化返回 409，需重新读取后再提交。
+- 标记成员已收款前，先 GET /subscriptions/{id} 取得真实 memberId 和最新 nextDueDate，向我确认实际收款后提交仅含 expectedDueDate 的请求体，值必须等于该成员当前 nextDueDate。成功后报告返回的收款记录与下次收款日期；若返回 409，重新读取订阅，不要沿用旧日期重试。
 
 操作规则
 - 读取、分析和生成订阅票可以直接执行。
 - 任何写入前都必须复述具体变更并获得我的明确确认。
+- 标记成员已收款也是写入，必须先确认实际收到款项；不能仅凭到期提醒自动标记。
 - 永久删除不可恢复，必须单独说明后再次获得明确确认；通常优先归档。
 - custom 和 lifetime 不能自动推进续费日期。
 - 信息含糊时先提问；操作后报告 API 实际返回结果，不要声称未执行的操作已经完成。
-- 不要在回复中展示完整 Key，也不要把 Key 发送给 TuD 以外的服务。
+- 不要在回复中展示完整 Key；只在我授权的 AI 工具中使用，并且调用 API 时仅发送到上述 TuD 地址。
 
 现在先读取 OpenAPI 或 GET /api/ai/v1 的说明，然后等待我的任务。`;
 }
@@ -142,14 +148,15 @@ export function AiSettingsPanel({ name, initialKeys, origin }: { name: string; i
         <div className="ai-section-heading"><span>CAPABILITIES</span><h2>AI 可以做什么</h2><p>下面是当前真实开放的能力，不需要让 AI 猜。</p></div>
         <div className="ai-capability-grid">
           <article><span><ListFilter size={20} /></span><div><strong>查询与整理</strong><p>读取全部订阅或单项详情，按名称、分类、账号、币种和到期日筛选，找出即将续费或缺少金额的信息。</p></div></article>
-          <article><span><FileJson2 size={20} /></span><div><strong>创建与更新</strong><p>设置服务名、分类、金额、币种、周期、续费日、账号、官网、备注和提醒；更新前会先向你确认。</p></div></article>
+          <article><span><FileJson2 size={20} /></span><div><strong>创建与更新</strong><p>设置服务名、分类、金额、币种、周期、续费日、成员收款计划、账号、官网、备注和提醒；更新前会先向你确认。</p></div></article>
           <article><span><CalendarSync size={20} /></span><div><strong>完成续费</strong><p>读取订阅 ID 后，将续费日期准确推进一个账单周期，支持月、季度、半年、一年至三年周期。</p></div></article>
+          <article><span><CircleDollarSign size={20} /></span><div><strong>记录成员收款</strong><p>分页查询收款历史；确认实际收款后，记录本次款项并推进该成员的下次收款日期。</p></div></article>
           <article><span><ReceiptText size={20} /></span><div><strong>生成订阅票</strong><p>选择全部或指定订阅，按目标币种汇总月均支出，直接生成带品牌图标、分类和续费信息的 PNG 长图。</p></div></article>
           <article><span><ImageIcon size={20} /></span><div><strong>选择正确图标</strong><p>搜索内置品牌图标、从官方网站发现图标，或创建最多 5 个字符的字母图标，再把真实 iconId 写入订阅。</p></div></article>
           <article><span><Tags size={20} /></span><div><strong>管理分类与顺序</strong><p>读取完整分类列表，创建、排序或删除分类并迁移订阅，也可以调整全部有效订阅的卡片顺序。</p></div></article>
           <article><span><ArchiveRestore size={20} /></span><div><strong>归档与恢复</strong><p>默认使用可恢复的归档；确实需要时才永久删除，并要求 AI 单独说明不可恢复风险后再次确认。</p></div></article>
         </div>
-        <div className="ai-example-prompts"><span>你可以这样说</span><p>“列出未来 30 天要续费的服务”</p><p>“把 Claude Pro 以每月 20 USD、下月 12 日续费加入 AI 分类”</p><p>“生成一张以 CNY 汇总的订阅票”</p></div>
+        <div className="ai-example-prompts"><span>你可以这样说</span><p>“列出未来 30 天要续费的服务”</p><p>“把 Claude Pro 以每月 20 USD、下月 12 日续费加入 AI 分类”</p><p>“查看 OneDrive 的成员收款记录，并在我确认收到款后标记收款”</p><p>“生成一张以 CNY 汇总的订阅票”</p></div>
       </section>
 
       <section className="security-card-main ai-key-card">
@@ -185,6 +192,8 @@ export function AiSettingsPanel({ name, initialKeys, origin }: { name: string; i
           <div><code>POST /subscriptions</code><span>创建订阅</span></div>
           <div><code>PATCH /subscriptions/{`{id}`}</code><span>更新任意已开放字段</span></div>
           <div><code>POST /subscriptions/{`{id}`}/renew</code><span>续费并推进日期</span></div>
+          <div><code>GET /subscriptions/{`{id}`}/member-payments</code><span>首次不传 cursor；后续把响应的 nextCursor 放入 ?cursor=</span></div>
+          <div><code>POST /subscriptions/{`{id}`}/members/{`{memberId}`}/collect</code><span>确认实际收款后记录款项并推进该成员的下次收款日</span></div>
           <div><code>DELETE /subscriptions/{`{id}`}</code><span>归档；永久删除还需 permanent=true 和 confirm={`{id}`}</span></div>
           <div><code>POST /subscriptions/{`{id}`}/restore</code><span>恢复已归档订阅</span></div>
           <div><code>PATCH /subscriptions/order</code><span>调整全部有效订阅顺序</span></div>
@@ -196,13 +205,15 @@ export function AiSettingsPanel({ name, initialKeys, origin }: { name: string; i
           <div><code>POST /ticket</code><span>生成 PNG 订阅票，或返回结构化数据</span></div>
         </div>
         <dl className="ai-field-reference">
-          <div><dt>金额</dt><dd><code>amount</code> 使用主单位，例如 12.99；不要和 <code>amountMinor</code> 同时传。</dd></div>
+          <div><dt>订阅金额</dt><dd>订阅顶层的 <code>amount</code> 使用主单位，例如 12.99；不要和订阅顶层的 <code>amountMinor</code> 同时传。成员计划的金额另见下方。</dd></div>
           <div><dt>日期</dt><dd><code>dueDate</code> 使用 YYYY-MM-DD；永久订阅无需日期。</dd></div>
           <div><dt>周期</dt><dd>monthly / quarterly / semiannual / yearly / biennial / triennial / custom / lifetime</dd></div>
           <div><dt>图标</dt><dd>创建订阅前先调用 <code>/icons</code>；不得猜测 <code>iconId</code>。搜索无结果时再发现官网图标或创建字母图标。</dd></div>
           <div><dt>分类</dt><dd><code>groupName</code> 不存在时自动创建；<code>/categories</code> 可管理空分类、顺序和迁移。</dd></div>
           <div><dt>提醒</dt><dd>先读取 <code>/preferences</code>；只有 <code>reminderEligible=true</code> 才能开启。</dd></div>
           <div><dt>颜色</dt><dd><code>cardAccent</code> 使用 6 位十六进制颜色，传 null 恢复跟随图标。</dd></div>
+          <div><dt>成员收款计划</dt><dd><code>memberSchedules</code> 为每位成员设置独立金额、币种、下次收款日和重复周期。成员金额用最小单位整数 <code>amountMinor</code>：CNY 10 元 = 1000、JPY 10 円 = 10、KWD 1 第纳尔 = 1000。每人可单独开启 <code>reminderEnabled</code>，同日应收合并提醒管理者。更新时把最新 <code>updatedAt</code> 作为 <code>expectedUpdatedAt</code> 回传；已有成员还需回传当前 <code>lastCollectedAt</code>。传空数组清除，省略则保留。</dd></div>
+          <div><dt>标记已收款</dt><dd>先读取最新订阅，取得成员 <code>id</code> 和 <code>nextDueDate</code>；确认实际收款后，将该日期作为 <code>expectedDueDate</code> 提交。返回 409 时重新读取，不要沿用旧日期重试。收款历史可用 <code>nextCursor</code> 分页读取。</dd></div>
           <div><dt>订阅票</dt><dd><code>selectedIds</code> 可选；<code>summaryCurrency</code> 指定汇总币种；默认返回 PNG 图片，只有需要分析明细时才传 <code>{`format: "json"`}</code>。</dd></div>
         </dl>
         <div className="ai-request-examples">
@@ -223,6 +234,7 @@ export function AiSettingsPanel({ name, initialKeys, origin }: { name: string; i
   "dueDate": "2026-10-12",
   "notes": "已升级套餐"
 }`}</code></pre></article>
+          <article><header><strong>标记成员已收款</strong><code>POST /subscriptions/{`{id}`}/members/{`{memberId}`}/collect</code></header><pre><code>{'{\n  "expectedDueDate": "2026-10-15"\n}'}</code></pre></article>
           <article><header><strong>生成订阅票</strong><code>POST /ticket</code></header><pre><code>{`{
   "selectedIds": ["订阅 ID 1", "订阅 ID 2"],
   "summaryCurrency": "CNY",
